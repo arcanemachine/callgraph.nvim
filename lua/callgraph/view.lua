@@ -482,6 +482,7 @@ local function def_aware_fetch(raw)
     query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
         if node.chosen_def then
+          node.def_pending = false -- chosen: expand normally, no stub marker
           local dd = raw(node, direction)
           dd:next(function(calls)
             local kept = {}
