@@ -18,9 +18,14 @@ local function text_label(graph, n, show_call_site, max_loc_width)
   if n == graph.root and n.uri and n.range then
     local path = vim.uri_to_fname(n.uri)
     loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring((n.range.start.line or 0) + 1)
-  elseif n.call_site then
+  elseif n.source == 'cscope' and n.call_site then
+    -- cscope -L output is call sites, so show where the call happens.
     local path = vim.uri_to_fname(n.call_site.uri)
     loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring(n.call_site.line + 1)
+  elseif n.uri and n.range then
+    -- lsp / auto: the item range is the definition — show that, not the call site.
+    local path = vim.uri_to_fname(n.uri)
+    loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring((n.range.start.line or 0) + 1)
   end
   if not loc then return nil end
   return util.truncate(loc, max_loc_width)

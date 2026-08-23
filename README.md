@@ -51,7 +51,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Depth limit**: `max_depth` defaults to 4 (at most 4 edges from the root). Boundary nodes collapse to a `▸` marker; Enter / double-click expands, `+` / `-` adjust depth.
 - **Cycles**: when a back edge is detected the node is not expanded again; a highlighted **⟳** terminal is shown next to the name and no back edge is drawn.
 - **Crossing-free edges**: rows are assigned so each subtree occupies a contiguous band; parent→child edges never overlap other edges.
-- **Call-site labels**: each box shows the call site `file:line` (`show_call_site` can be turned off).
+- **Location labels**: each box shows `file:line` — the definition for LSP/auto sources, the call site for cscope (`show_call_site` can be turned off).
 - **Long-name truncation**: over-wide function names are truncated to `…`; hovering shows the full path in the message area.
 - **Auto-scroll**: moving the selection scrolls the canvas (horizontal/vertical) so the focused box stays visible.
 - **Dynamic window size**: `<` / `>` grow/shrink the view window (width for `right`, height for `bottom`); the size is kept for later renders and re-opens.
