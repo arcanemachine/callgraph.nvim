@@ -392,7 +392,7 @@ end
 
 -- Forward declarations: the helpers are defined after toggle_expand but
 -- referenced inside it.
-local is_call_site_node, filtered_fetch, expand_normal, expand_with_def, query_definitions
+local is_call_site_node, expand_normal, expand_with_def, query_definitions
 
 function M.toggle_expand()
   local tab = active_tab()
@@ -483,12 +483,19 @@ local function def_aware_fetch(raw)
       if defs and #defs > 1 then
         if node.chosen_def then
           node.def_pending = false -- chosen: expand normally, no stub marker
+          local def = node.chosen_def
           local dd = raw(node, direction)
           dd:next(function(calls)
             local kept = {}
             for _, c in ipairs(calls) do
-              if c.call_site and c.call_site.uri == node.chosen_def.uri then
-                kept[#kept + 1] = c
+              if c.call_site and c.call_site.uri == def.uri then
+                -- Same-file definitions (mock cscope carries end_line): keep only
+                -- call sites inside the chosen definition's range, so expanding
+                -- impl shows mqtest (USE_V2) OR mqtest2, not both.
+                if not def.end_line
+                   or (c.call_site.line >= def.line and c.call_site.line < def.end_line) then
+                  kept[#kept + 1] = c
+                end
               end
             end
             d:resolve(kept)
@@ -517,27 +524,6 @@ function M.make_fetch()
   local raw = source_mod.make_fetch(state.encoding, state.client, config.get())
   if not config.get().multi_def then return raw end
   return def_aware_fetch(raw)
-end
-
--- Wrap a fetch so results are restricted to calls in `def`'s file — the chosen
--- definition's implementation.
-local function filtered_fetch(fetch, def)
-  return function(node, direction)
-    local d = fetch(node, direction)
-    local out = util.Deferred.new()
-    d:next(function(calls)
-      local kept = {}
-      for _, c in ipairs(calls) do
-        if c.call_site and c.call_site.uri == def.uri then
-          kept[#kept + 1] = c
-        end
-      end
-      out:resolve(kept)
-    end, function(err)
-      out:reject(err)
-    end)
-    return out
-  end
 end
 
 expand_normal = function(tab, node, fetch)
@@ -569,12 +555,9 @@ expand_with_def = function(tab, node, fetch, def)
     expand_normal(tab, node, fetch)
     return
   end
-  local d
-  if def.uri == node.uri then
-    d = graph_mod.rebuild(tab.graph, node, fetch)
-  else
-    d = graph_mod.rebuild(tab.graph, node, filtered_fetch(fetch, def))
-  end
+  -- `fetch` is definition-aware: it already filters call sites to the chosen
+  -- definition (by file, and by range for same-file definitions).
+  local d = graph_mod.rebuild(tab.graph, node, fetch)
   d:next(function(g)
     tab.graph = g
     M.render_view()
@@ -590,8 +573,8 @@ local function rebuild_with_def(tab, node, def)
     node.range = { start = { line = def.line, character = 0 }, ['end'] = { line = def.line + 1, character = 0 } }
     node.selectionRange = node.range
   end
-  local fetch = M.make_fetch()
-  local d = graph_mod.rebuild(tab.graph, node, (def.uri == node.uri) and fetch or filtered_fetch(fetch, def))
+  -- M.make_fetch is definition-aware (filters by chosen definition's file/range).
+  local d = graph_mod.rebuild(tab.graph, node, M.make_fetch())
   d:next(function(g)
     tab.graph = g
     M.render_view()

@@ -44,13 +44,18 @@ local function build_index()
     local text = table.concat(lines, '\n')
     local defs = scanner.enumerate_definitions(text)
     for i, d in ipairs(defs) do
-      -- Register this definition.
+      -- Register this definition, with its exclusive end line (the next
+      -- definition, or EOF) so call sites can be matched to a specific
+      -- same-file definition.
       index.defs[d.name] = index.defs[d.name] or {}
       local dup = false
       for _, dd in ipairs(index.defs[d.name]) do
         if dd.uri == uri and dd.line == d.line then dup = true; break end
       end
-      if not dup then index.defs[d.name][#index.defs[d.name] + 1] = { uri = uri, line = d.line } end
+      if not dup then
+        local end_line = defs[i + 1] and defs[i + 1].line or #lines
+        index.defs[d.name][#index.defs[d.name] + 1] = { uri = uri, line = d.line, end_line = end_line }
+      end
       -- Function body = this definition up to (not including) the next one
       -- (or EOF); scan it for callees (scan_calls starts after the first `{`).
       -- Stopping before the next definition keeps the next function's signature
