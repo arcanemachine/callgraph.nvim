@@ -553,10 +553,23 @@ expand_with_def = function(tab, node, fetch, def)
   -- auto: same-file definition — point the node at that definition's range so
   -- the fallback rescans its body; cscope: cross-file — filter call sites to
   -- the chosen definition's file.
-  local d
   if def.uri == node.uri then
     node.range = { start = { line = def.line, character = 0 }, ['end'] = { line = def.line + 1, character = 0 } }
     node.selectionRange = node.range
+  end
+  -- Already expanded with this definition? Space should toggle collapse back
+  -- (a plain rebuild always re-expands, so folding would never work).
+  local has_visible = false
+  for _, cid in ipairs(node.children) do
+    local c = tab.graph.nodes[cid]
+    if c and c.visible then has_visible = true; break end
+  end
+  if has_visible then
+    expand_normal(tab, node, fetch)
+    return
+  end
+  local d
+  if def.uri == node.uri then
     d = graph_mod.rebuild(tab.graph, node, fetch)
   else
     d = graph_mod.rebuild(tab.graph, node, filtered_fetch(fetch, def))
