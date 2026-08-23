@@ -2,6 +2,8 @@
 
 > **English** · [中文](README.zh.md)
 
+![Call graph in auto color mode](assets/auto_colors.png)
+
 A Neovim plugin that shows a **real function call graph** (a directed graph / flowchart), not an indent tree.
 
 Callers are always on the **left**, callees on the **right**; edges are orthogonal polylines with arrowheads. Data comes from the LSP
