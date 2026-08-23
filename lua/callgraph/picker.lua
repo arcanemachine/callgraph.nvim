@@ -99,7 +99,7 @@ function M.pick(defs, on_pick)
   if not defs or #defs == 0 then on_pick(nil); return end
   if picker then close(nil) end
 
-  local w1, w2, gap = 64, 50, 1 -- panes sit close, borders don't touch
+  local w1, w2, gap = 64, 50, 2 -- panes sit close, borders don't touch
   local preview_rows = PREVIEW_BEFORE + PREVIEW_AFTER + 1
   local pane_h = math.max(math.min(#defs, 12), preview_rows) + 2 -- incl. border
   local win1_w, win2_w = w1 + 2, w2 + 2
@@ -116,6 +116,8 @@ function M.pick(defs, on_pick)
     relative = 'editor', row = row0, col = col0, width = win1_w, height = pane_h,
     style = 'minimal', border = 'rounded', title = ' select ', title_pos = 'center',
   })
+  -- Title keeps the plain foreground (no FloatTitle highlight / red).
+  vim.api.nvim_win_set_option(win1, 'winhighlight', 'FloatTitle:Normal')
 
   local buf2 = vim.api.nvim_create_buf(false, true)
   vim.bo[buf2].buftype = 'nofile'
@@ -124,6 +126,7 @@ function M.pick(defs, on_pick)
     relative = 'editor', row = row0, col = col0 + win1_w + gap, width = win2_w, height = pane_h,
     style = 'minimal', border = 'rounded', title = ' preview ', title_pos = 'center',
   })
+  vim.api.nvim_win_set_option(win2, 'winhighlight', 'FloatTitle:Normal')
 
   picker = { win1 = win1, buf1 = buf1, win2 = win2, buf2 = buf2, idx = 1, defs = defs, cb = on_pick }
   setup_keymaps(buf1)
