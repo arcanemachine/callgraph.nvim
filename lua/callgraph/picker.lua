@@ -65,10 +65,16 @@ end
 local function close(result)
   if not picker then return end
   local cb = picker.cb
+  local restore = picker.orig_win
   local wins = { picker.win1, picker.win2 }
   picker = nil
   for _, w in ipairs(wins) do
     if w and vim.api.nvim_win_is_valid(w) then pcall(vim.api.nvim_win_close, w, true) end
+  end
+  -- Focus returns to the window the picker was opened from (the graph window),
+  -- not wherever the float's focus ended up.
+  if restore and vim.api.nvim_win_is_valid(restore) then
+    vim.api.nvim_set_current_win(restore)
   end
   if cb then cb(result) end
 end
@@ -98,6 +104,9 @@ end
 function M.pick(defs, on_pick)
   if not defs or #defs == 0 then on_pick(nil); return end
   if picker then close(nil) end
+  -- Record the window we open from BEFORE the float steals focus, so cancelling
+  -- (or finishing) can return there — e.g. the graph window.
+  local orig_win = vim.api.nvim_get_current_win()
 
   local w1, w2, gap = 64, 50, 2 -- panes sit close, borders don't touch
   local preview_rows = PREVIEW_BEFORE + PREVIEW_AFTER + 1
@@ -128,7 +137,11 @@ function M.pick(defs, on_pick)
   })
   vim.api.nvim_win_set_option(win2, 'winhighlight', 'FloatTitle:Normal')
 
-  picker = { win1 = win1, buf1 = buf1, win2 = win2, buf2 = buf2, idx = 1, defs = defs, cb = on_pick }
+  picker = {
+    win1 = win1, buf1 = buf1, win2 = win2, buf2 = buf2,
+    idx = 1, defs = defs, cb = on_pick,
+    orig_win = orig_win, -- restored on close
+  }
   setup_keymaps(buf1)
   setup_keymaps(buf2)
   render()

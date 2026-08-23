@@ -691,6 +691,11 @@ function M.jump_to_def()
     end
     query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
+        -- Open the picker from the graph window so cancelling returns there
+        -- (jump_to_def already moved focus to the main window).
+        if state.win and vim.api.nvim_win_is_valid(state.win) then
+          vim.api.nvim_set_current_win(state.win)
+        end
         picker.pick(defs, function(def)
           if def then
             node.chosen_def = def
