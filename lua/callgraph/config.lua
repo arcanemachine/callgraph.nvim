@@ -28,6 +28,13 @@ M.defaults = {
   -- optionally limits the indexed directory (default: the working directory).
   mock_cscope = false,
   mock_cscope_dir = '',
+  -- Multi-definition support (cscope / auto): when a name has several
+  -- definitions (e.g. conditionally compiled), graph building stops at the
+  -- node and expanding / jumping opens a definition picker. OFF by default —
+  -- most codebases don't need it, and it adds a definition lookup per
+  -- call-site node. When off, the plugin skips all multi-definition logic
+  -- (zero overhead); jump goes to the first definition as before.
+  multi_def = false,
   window = {
     -- Split position: "right" (vertical split) or "bottom" (horizontal split).
     position = 'bottom',

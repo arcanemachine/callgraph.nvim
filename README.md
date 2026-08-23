@@ -55,7 +55,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Multiple tabs**: several function+direction graphs can be open at once in one view, shown in the winbar.
 - **Multi-source**: call relationships can come from `lsp` / `cscope` / `ctags` / `auto` in the configured priority order; availability is probed once at startup and cached.
 - **Query caching**: each symbol's callers/callees are fetched only once per session — tree expansion reaches the same function along many paths, so the underlying query (cscope / LSP / auto) is never repeated for it, including across rebuilds and expands.
-- **Multiple definitions**: when a function name has several definitions — cscope finds them across files / conditional branches, and auto text-scans the file (so `#ifdef`-gated duplicates count) — expanding or jumping to it opens a definition picker; the chosen definition's implementation is used (cscope keeps call sites in that file, auto re-scans that definition's body). The choice is remembered per node for the session.
+- **Multiple definitions** (`multi_def = true`): when a function name has several definitions — cscope finds them across files / conditional branches, and auto text-scans the file (so `#ifdef`-gated duplicates count) — graph building stops at the node and expanding / jumping opens a definition picker; the chosen definition's implementation is used (cscope keeps call sites in that file, auto re-scans that definition's body). The choice is remembered per node for the session. Off by default: most codebases don't need it, and it adds a definition lookup per call-site node.
 - **Lazy.nvim friendly**: `documentSymbol` is cached in the background after `LspAttach`; opening a file costs zero.
 
 ## Data sources
@@ -127,6 +127,10 @@ require('callgraph').setup({
                               -- real `cscope` binary (Windows / CI). Validates
                               -- cscope scenarios, not production accuracy.
   mock_cscope_dir = '',       -- optional directory the mock indexes (default: cwd)
+  multi_def = false,          -- multi-definition support (cscope/auto): graph
+                              -- stops at nodes with several definitions and
+                              -- expanding/jumping opens a picker. OFF by default
+                              -- (zero overhead); jump goes to the first def.
   highlight = true,       -- highlight toggle (on by default): color the focused
                           -- function name, dim the location label
   window = {

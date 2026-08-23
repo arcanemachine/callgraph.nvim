@@ -400,7 +400,7 @@ function M.toggle_expand()
   local node = tab.graph.nodes[tab.selected_id]
   if not node then return end
   local fetch = M.make_fetch()
-  if is_call_site_node(node) then
+  if config.get().multi_def and is_call_site_node(node) then
     query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
         -- Several definitions: the user must pick one before we can expand
@@ -510,8 +510,12 @@ end
 
 --- View-level fetch: raw sources wrapped with definition-aware expansion (used
 --- by graph building so multi-definition nodes stop until the user picks).
+--- Only wraps when config.multi_def is on — otherwise the raw fetch avoids the
+--- per-node definition lookup entirely.
 function M.make_fetch()
-  return def_aware_fetch(source_mod.make_fetch(state.encoding, state.client, config.get()))
+  local raw = source_mod.make_fetch(state.encoding, state.client, config.get())
+  if not config.get().multi_def then return raw end
+  return def_aware_fetch(raw)
 end
 
 -- Wrap a fetch so results are restricted to calls in `def`'s file — the chosen
@@ -655,6 +659,17 @@ function M.jump_to_def()
       lsp_mod.jump_to_location(def.uri,
         { start = { line = def.line, character = 0 }, ['end'] = { line = def.line, character = 0 } },
         state.encoding)
+    end
+    if not config.get().multi_def then
+      -- Default: jump to the first definition — no multi-definition handling.
+      source_mod.provider('cscope').find_definition(node.name):next(function(def)
+        if def then
+          jump_to_def(def)
+        elseif node.range then
+          lsp_mod.jump_to_location(node.uri, node.range, state.encoding)
+        end
+      end)
+      return
     end
     if node.chosen_def then
       jump_to_def(node.chosen_def)
