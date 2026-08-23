@@ -7,16 +7,24 @@
  *   cscope -bq        (from the repo root, or wherever cscope.out lives)
  *   sources = { 'cscope' }
  */
+static int mqtest2()
+{
+    return 0;
+}
+static int mqtest()
+{
+    return 0;
+}
 
 #ifdef USE_V2
 static int impl(void)
 {
-    return 2;
+    return mqtest();
 }
 #else
 static int impl(void)
 {
-    return 1;
+    return mqtest2();
 }
 #endif
 
