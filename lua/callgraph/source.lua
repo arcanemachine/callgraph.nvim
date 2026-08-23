@@ -60,7 +60,9 @@ function M.make_fetch(encoding, client, opts)
   local fetchers = {}
   for _, name in ipairs(M.active_sources(opts)) do
     local p = providers[name]
-    if p.make_fetch then fetchers[#fetchers + 1] = p.make_fetch(encoding, client, opts) end
+    if p.make_fetch then
+      fetchers[#fetchers + 1] = { name = name, fn = p.make_fetch(encoding, client, opts) }
+    end
   end
   return function(node, direction)
     -- Session-level cache: in tree mode the same symbol is reached through
@@ -79,9 +81,12 @@ function M.make_fetch(encoding, client, opts)
     util.async_start(function()
       local result = {}
       for _, f in ipairs(fetchers) do
-        local ok, calls = pcall(function() return util.await(f(node, direction)) end)
+        local ok, calls = pcall(function() return util.await(f.fn(node, direction)) end)
         if ok and calls and #calls > 0 then
           result = calls
+          -- Tag each call with the source that produced it, so nodes know
+          -- whether they are semantic (lsp) or text-based (cscope/auto).
+          for _, c in ipairs(result) do c.source = f.name end
           break
         end
       end

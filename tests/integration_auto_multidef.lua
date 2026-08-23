@@ -34,7 +34,7 @@ local util = require('callgraph.util')
 util.async_start(function()
   local item, enc, client
   for attempt = 1, 10 do
-    vim.api.nvim_win_set_cursor(0, { 23, 8 }) -- on `caller`
+    vim.api.nvim_win_set_cursor(0, { 31, 8 }) -- on `caller` (1-based line)
     item, enc, client = lsp_mod.resolve_root(vim.api.nvim_get_current_buf())
     if item and item.name == 'caller' then break end
     vim.wait(2000, function() return false end)
@@ -52,8 +52,8 @@ util.async_start(function()
       if n.name == 'impl' and n.call_site then impl = n end
     end
     check('impl is call-site node (triggers picker)',
-      impl ~= nil and impl.uri == impl.call_site.uri,
-      impl and tostring(impl.uri == impl.call_site.uri) or 'no impl call_site node')
+      impl ~= nil and impl.source == 'auto' and impl.uri == impl.call_site.uri,
+      impl and (impl.source or 'nil') .. '/' .. tostring(impl.uri == impl.call_site.uri) or 'no impl call_site node')
     os.exit(failed == 0 and 0 or 1)
   end, function(e)
     print('FAIL build: ' .. tostring(e)); os.exit(1)

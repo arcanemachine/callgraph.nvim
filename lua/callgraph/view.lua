@@ -425,15 +425,14 @@ function M.toggle_expand()
   end
 end
 
--- Call-site nodes carry the call-site location in uri/range (cscope -L output
--- and auto's name-match fallback are call sites, not definitions). Detect them
--- by uri/line matching the call_site.
+-- Text-based nodes (cscope / auto) carry the call-site location in uri/range
+-- and their definition is ambiguous — unlike semantic LSP nodes. Detect them by
+-- the source tag each provider stamps on its calls. The uri matching call_site
+-- means the node points at a call site, not a definition.
 local function is_call_site_node(node)
-  return node.call_site ~= nil
+  return (node.source == 'cscope' or node.source == 'auto')
+    and node.call_site ~= nil
     and node.uri == node.call_site.uri
-    and node.range ~= nil
-    and node.range.start ~= nil
-    and node.range.start.line == node.call_site.line
 end
 
 -- Text-scan `node`'s own file for same-name definition lines (the auto /

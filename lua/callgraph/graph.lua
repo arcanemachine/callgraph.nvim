@@ -118,6 +118,7 @@ local function add_children(graph, node, calls)
           cyc.cycle_of = node.id
           cyc.children_fetched = true
           cyc.has_children = false
+          cyc.source = c.source -- which provider produced this call
           graph.nodes[cyc_key] = cyc
           add_edge(graph, node, cyc, c.call_site)
         end
@@ -127,6 +128,7 @@ local function add_children(graph, node, calls)
         if not graph.nodes[cid] then
           local n = new_node(graph, c.item, node.depth + 1, node.id)
           n.id = cid
+          n.source = c.source -- which provider produced this call
           graph.nodes[cid] = n
           add_edge(graph, node, n, c.call_site)
           new_nodes[#new_nodes + 1] = n
