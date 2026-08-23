@@ -96,12 +96,14 @@ function M.layout(graph, opts, view_state)
   for id, n in pairs(graph.nodes) do
     if n.visible then
       local name = util.truncate(n.name or '?', max_name_width)
-      local cycle_str = ''
+      -- Marker slots are always reserved (space + one symbol), so toggling
+      -- expand/collapse never changes a box's width.
+      local cycle_str = '  '
       if n.is_cycle then cycle_str = ' ⟳' end
       local loc_str = ''
       local label = text_label(graph, n, show_call_site, max_loc_width)
       if label then loc_str = ' ' .. label end
-      local coll_str = ''
+      local coll_str = '  '
       -- def_pending nodes have several definitions not chosen yet: show the
       -- collapse marker so the user knows they can expand to pick one.
       if n.def_pending or (n.has_children and not all_children_visible(graph, n)) then
