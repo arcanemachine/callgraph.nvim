@@ -428,7 +428,7 @@ end
 -- and their definition is ambiguous — unlike semantic LSP nodes. Detect them by
 -- the source tag each provider stamps on its calls. The uri matching call_site
 -- means the node points at a call site, not a definition.
-local function is_call_site_node(node)
+is_call_site_node = function(node)
   return (node.source == 'cscope' or node.source == 'auto')
     and node.call_site ~= nil
     and node.uri == node.call_site.uri
@@ -456,7 +456,7 @@ end
 
 -- Definitions for `node`: cscope (cross-file) when its database resolves the
 -- name, else a text scan of the node's file (auto single-file fallback).
-local function query_definitions(node)
+query_definitions = function(node)
   local d = util.Deferred.new()
   local cscope = source_mod.provider('cscope')
   cscope.find_definitions(node.name):next(function(defs)
@@ -539,7 +539,7 @@ local function filtered_fetch(fetch, def)
   end
 end
 
-local function expand_normal(tab, node, fetch)
+expand_normal = function(tab, node, fetch)
   local d = graph_mod.expand(tab.graph, node, fetch)
   d:next(function(g)
     tab.graph = g
@@ -549,7 +549,7 @@ local function expand_normal(tab, node, fetch)
   end)
 end
 
-local function expand_with_def(tab, node, fetch, def)
+expand_with_def = function(tab, node, fetch, def)
   -- auto: same-file definition — point the node at that definition's range so
   -- the fallback rescans its body; cscope: cross-file — filter call sites to
   -- the chosen definition's file.
