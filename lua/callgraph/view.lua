@@ -699,6 +699,11 @@ function M.jump_to_def()
         picker.pick(defs, function(def)
           if def then
             node.chosen_def = def
+            -- picker.close restored focus to the graph window; the jump itself
+            -- must land in the main (code) window.
+            if orig and vim.api.nvim_win_is_valid(orig) then
+              vim.api.nvim_set_current_win(orig)
+            end
             jump_to_def(def)
           end
         end)
