@@ -123,6 +123,10 @@ require('callgraph').setup({
                               -- first one that returns results wins. Available:
                               -- lsp / cscope / ctags (reserved) / auto (single-file
                               -- heuristic). Probed for availability at startup.
+  mock_cscope = false,        -- debug: use a text-index mock instead of the
+                              -- real `cscope` binary (Windows / CI). Validates
+                              -- cscope scenarios, not production accuracy.
+  mock_cscope_dir = '',       -- optional directory the mock indexes (default: cwd)
   highlight = true,       -- highlight toggle (on by default): color the focused
                           -- function name, dim the location label
   window = {
@@ -227,6 +231,7 @@ nvim --headless -u NONE -l tests/integration_testc.lua # real clangd: test.c nam
 nvim --headless -u NONE -l tests/integration_lsp.lua   # clangd ≥ 20: pure-LSP callout 4 levels + callin
 nvim --headless -u NONE -l tests/integration_py.lua    # pyright: Python callout(outgoing)+callin (skips if absent)
 nvim --headless -u NONE -l tests/integration_auto_multidef.lua # auto: multidef.c 条件编译多定义触发条件
+nvim --headless -u NONE -l tests/cscope_mock.lua # mock cscope：文本索引多定义（无 cscope 也可验证）
 nvim --headless -u NONE -l tests/cscope.lua            # cscope provider: output parse / index discovery / availability
 nvim --headless -u NONE -l tests/integration_complex.lua # test_complex.c: diamond / cycles / fan-out / deep chain
 nvim --headless -u NONE -l tests/e2e_callout.lua         # end-to-end: open file, place cursor, run :Callout (CI)

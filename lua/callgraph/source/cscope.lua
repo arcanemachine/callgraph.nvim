@@ -8,6 +8,8 @@
 --- Needs the `cscope` binary and a cscope.out database in the project.
 
 local util = require('callgraph.util')
+local config = require('callgraph.config')
+local mock = require('callgraph.source.cscope_mock')
 
 local M = {}
 
@@ -40,6 +42,9 @@ end
 
 --- Is cscope usable right now (binary present + a database exists)?
 function M.available(opts)
+  if config.get().mock_cscope then
+    return mock.available(opts)
+  end
   if vim.fn.executable('cscope') ~= 1 then return false end
   return M.find_db() ~= nil
 end
@@ -78,6 +83,9 @@ end
 --- Results are cached by funcname+direction at module level so the same
 --- function is never queried twice per session.
 function M.query(funcname, direction, opts)
+  if config.get().mock_cscope then
+    return mock.query(funcname, direction, opts)
+  end
   local key = (funcname or '?') .. '\0' .. (direction or '?')
 
   -- Cache hit (done): return a fresh Deferred resolved immediately.
@@ -130,6 +138,9 @@ end
 --- function is queried at most once per session. Called lazily on jump /
 --- expand — the graph builds without definition lookups.
 function M.find_definitions(funcname)
+  if config.get().mock_cscope then
+    return mock.find_definitions(funcname)
+  end
   local d = util.Deferred.new()
   if not funcname then d:resolve({}); return d end
   if def_cache[funcname] ~= nil then
@@ -185,6 +196,7 @@ end
 function M.clear_cache()
   query_cache = {}
   def_cache = {}
+  mock.clear_cache()
 end
 
 --- Fetch function for graph building: node, direction -> Deferred(calls).

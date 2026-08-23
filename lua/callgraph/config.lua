@@ -22,6 +22,12 @@ M.defaults = {
   --   ctags  : ctags (needs `ctags` + tags file; reserved, not implemented yet).
   --   auto   : heuristic single-file fallback (body scan / name match).
   sources = { 'lsp', 'auto' },
+  -- Debug / test helper: use a text-index mock instead of the real cscope
+  -- binary (handy on Windows / CI where cscope is unavailable). Meant for
+  -- validating cscope scenarios, not production accuracy. `mock_cscope_dir`
+  -- optionally limits the indexed directory (default: the working directory).
+  mock_cscope = false,
+  mock_cscope_dir = '',
   window = {
     -- Split position: "right" (vertical split) or "bottom" (horizontal split).
     position = 'bottom',

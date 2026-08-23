@@ -120,6 +120,9 @@ require('callgraph').setup({
   sources = { 'lsp', 'auto' }, -- 调用关系来源，按优先级取第一个有结果者：
                               -- lsp / cscope / ctags（预留）/ auto（单文件启发式）；
                               -- 启动时自动探测哪些可用（如未装 cscope 则跳过）
+  mock_cscope = false,        -- 调试用：用文本索引 mock 替代真实 cscope 二进制
+                              --（Windows/CI 无 cscope 时验证 cscope 场景）
+  mock_cscope_dir = '',       -- mock 索引的可选目录（默认当前工作目录）
   highlight = true,       -- 高亮开关（默认开）。选中函数名标色、位置标注变灰
   window = {
     position = 'bottom',     -- 'right'（右侧竖分） | 'bottom'（底部横分）
@@ -221,6 +224,7 @@ nvim --headless -u NONE -l tests/integration_testc.lua # 真 clangd：test.c 先
 nvim --headless -u NONE -l tests/integration_lsp.lua   # clangd ≥ 20：纯 LSP callout 4 层 + callin
 nvim --headless -u NONE -l tests/integration_py.lua    # pyright：Python callout(outgoing) + callin（无 pyright 则跳过）
 nvim --headless -u NONE -l tests/integration_auto_multidef.lua # auto：multidef.c 条件编译多定义触发条件
+nvim --headless -u NONE -l tests/cscope_mock.lua # mock cscope：文本索引多定义（无 cscope 也可验证）
 nvim --headless -u NONE -l tests/cscope.lua            # cscope provider：输出解析 / 索引发现 / 可用性探测
 nvim --headless -u NONE -l tests/integration_complex.lua # test_complex.c：菱形 / 循环 / fan-out / 深链
 nvim --headless -u NONE -l tests/e2e_callout.lua         # 端到端：打开文件、定位光标、执行 :Callout（CI）

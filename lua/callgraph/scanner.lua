@@ -138,16 +138,14 @@ function M.scan_calls(text)
   return out
 end
 
---- Find all definition lines for `name` in C source `text`. A text-level scan:
---- a definition is `<rettype> name(`, i.e. the identifier `name` followed by
---- `(` whose preceding token is a non-keyword identifier (the return type).
---- This sees BOTH conditionally-compiled branches (`#ifdef`/`#else`) — unlike a
+--- Scan `text` for all definition tokens: `{ name, line, col }` (0-based). A
+--- definition is `<rettype> name(`, i.e. an identifier followed by `(` whose
+--- preceding token is a non-keyword identifier (the return type). Text-level,
+--- so BOTH conditionally-compiled branches (`#ifdef`/`#else`) appear — unlike a
 --- semantic server, which only parses the active one. Skips comments, strings,
 --- char literals and preprocessor directive lines.
 --- @param text string Source text (a whole file, not a function range).
---- @param name string Function name to look for.
---- @return table[] list of { line, byte_col } (0-based) definition starts.
-function M.find_definitions(text, name)
+local function scan_definitions(text)
   local out = {}
   local n = #text
   local line, col = 0, 0
@@ -220,11 +218,11 @@ function M.find_definitions(text, name)
         j = j + 1
         c = string.byte(text, j)
       end
-      if c == 0x28 and word == name then
+      if c == 0x28 then
         -- Definition iff the preceding token is a non-keyword identifier
         -- (the return type) — not a call (return impl(), x = impl(), etc.).
         if prev_ident and not KEYWORDS[prev_ident] then
-          out[#out + 1] = { id_line, id_col }
+          out[#out + 1] = { name = word, line = id_line, col = id_col }
         end
       end
       prev_ident = word
@@ -235,6 +233,22 @@ function M.find_definitions(text, name)
     end
   end
   return out
+end
+
+--- Find all definition lines for `name` in C source `text`.
+--- @return table[] list of { line, byte_col } (0-based) definition starts.
+function M.find_definitions(text, name)
+  local out = {}
+  for _, d in ipairs(scan_definitions(text)) do
+    if d.name == name then out[#out + 1] = { d.line, d.col } end
+  end
+  return out
+end
+
+--- Enumerate every function definition in `text` — for the mock cscope index.
+--- @return table[] list of { name, line, col } (0-based).
+function M.enumerate_definitions(text)
+  return scan_definitions(text)
 end
 
 return M
