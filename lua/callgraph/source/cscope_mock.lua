@@ -25,8 +25,17 @@ local function build_index()
   local scanner = require('callgraph.scanner')
   index = { defs = {}, callees = {} }
   local dir = config.get().mock_cscope_dir or ''
-  if dir == '' then dir = vim.fn.getcwd() end
-  for _, f in ipairs(vim.fn.glob(dir .. '/**/*.{c,h}', false, true)) do
+  local files
+  if dir ~= '' then
+    files = vim.fn.glob(dir .. '/**/*.{c,h}', false, true)
+  else
+    -- Default: index only the current buffer's file. Same-name functions in
+    -- other files (e.g. several test `main`s) would otherwise pollute the
+    -- graph — a minimal single-file mock keeps the scenario clean.
+    local fname = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
+    if fname ~= '' then files = { fname } else files = {} end
+  end
+  for _, f in ipairs(files) do
     local abs = vim.fn.fnamemodify(f, ':p') -- glob may return relative paths
     local uri = vim.uri_from_fname(abs)
     local bufnr = vim.uri_to_bufnr(uri)
