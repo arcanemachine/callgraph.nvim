@@ -180,8 +180,7 @@ end
 function M.rebuild()
   local tab = active_tab()
   if not tab then return end
-  local fetch = source_mod.make_fetch(state.encoding, state.client, config.get())
-  local d = graph_mod.build(tab.root, tab.direction, { max_depth = tab.view_depth }, fetch)
+  local d = graph_mod.build(tab.root, tab.direction, { max_depth = tab.view_depth }, M.make_fetch())
   d:next(function(graph)
     tab.graph = graph
     tab.selected_id = graph.root.id
@@ -400,7 +399,7 @@ function M.toggle_expand()
   if not tab or not tab.graph then return end
   local node = tab.graph.nodes[tab.selected_id]
   if not node then return end
-  local fetch = source_mod.make_fetch(state.encoding, state.client, config.get())
+  local fetch = M.make_fetch()
   if is_call_site_node(node) then
     query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
@@ -470,6 +469,49 @@ local function query_definitions(node)
     end
   end)
   return d
+end
+
+-- Wrap the raw fetch so a node with several definitions (not chosen yet) is NOT
+-- auto-expanded during graph building — it renders as a collapsible stub and the
+-- user picks the definition on manual expand (toggle_expand). Once chosen, calls
+-- are filtered to that definition's file.
+local function def_aware_fetch(raw)
+  return function(node, direction)
+    if not is_call_site_node(node) then return raw(node, direction) end
+    local d = util.Deferred.new()
+    query_definitions(node):next(function(defs)
+      if defs and #defs > 1 then
+        if node.chosen_def then
+          local dd = raw(node, direction)
+          dd:next(function(calls)
+            local kept = {}
+            for _, c in ipairs(calls) do
+              if c.call_site and c.call_site.uri == node.chosen_def.uri then
+                kept[#kept + 1] = c
+              end
+            end
+            d:resolve(kept)
+          end, function(err) d:reject(err) end)
+        else
+          node.def_pending = true
+          node.has_children = true -- expandable stub (collapse marker shows)
+          d:resolve({})
+        end
+      else
+        node.def_pending = false
+        if defs and #defs == 1 then node.chosen_def = defs[1] end
+        local dd = raw(node, direction)
+        dd:next(function(calls) d:resolve(calls) end, function(err) d:reject(err) end)
+      end
+    end)
+    return d
+  end
+end
+
+--- View-level fetch: raw sources wrapped with definition-aware expansion (used
+--- by graph building so multi-definition nodes stop until the user picks).
+function M.make_fetch()
+  return def_aware_fetch(source_mod.make_fetch(state.encoding, state.client, config.get()))
 end
 
 -- Wrap a fetch so results are restricted to calls in `def`'s file — the chosen

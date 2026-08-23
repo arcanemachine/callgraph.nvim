@@ -51,9 +51,11 @@ local function build_index()
         if dd.uri == uri and dd.line == d.line then dup = true; break end
       end
       if not dup then index.defs[d.name][#index.defs[d.name] + 1] = { uri = uri, line = d.line } end
-      -- Function body = this definition up to the next one (or EOF); scan it
-      -- for callees (scan_calls starts after the first `{`).
-      local body_end = defs[i + 1] and (defs[i + 1].line + 1) or #lines
+      -- Function body = this definition up to (not including) the next one
+      -- (or EOF); scan it for callees (scan_calls starts after the first `{`).
+      -- Stopping before the next definition keeps the next function's signature
+      -- (e.g. `int main(`) out of this function's callees.
+      local body_end = defs[i + 1] and defs[i + 1].line or #lines
       local body = table.concat(lines, '\n', d.line + 1, body_end)
       index.callees[d.name] = index.callees[d.name] or {}
       for _, c in ipairs(scanner.scan_calls(body)) do

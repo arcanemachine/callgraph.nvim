@@ -102,7 +102,11 @@ function M.layout(graph, opts, view_state)
       local label = text_label(graph, n, show_call_site, max_loc_width)
       if label then loc_str = ' ' .. label end
       local coll_str = ''
-      if n.has_children and not all_children_visible(graph, n) then coll_str = ' ' .. win.collapse_marker end
+      -- def_pending nodes have several definitions not chosen yet: show the
+      -- collapse marker so the user knows they can expand to pick one.
+      if n.def_pending or (n.has_children and not all_children_visible(graph, n)) then
+        coll_str = ' ' .. win.collapse_marker
+      end
 
       local text = name .. cycle_str .. loc_str .. coll_str
       texts[n.id] = { text = text, name_width = util.char_count(name) }
