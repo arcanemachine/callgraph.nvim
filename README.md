@@ -55,7 +55,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Multiple tabs**: several function+direction graphs can be open at once in one view, shown in the winbar.
 - **Multi-source**: call relationships can come from `lsp` / `cscope` / `ctags` / `auto` in the configured priority order; availability is probed once at startup and cached.
 - **Query caching**: each symbol's callers/callees are fetched only once per session — tree expansion reaches the same function along many paths, so the underlying query (cscope / LSP / auto) is never repeated for it, including across rebuilds and expands.
-- **Multiple definitions (cscope)**: when a function name has several cscope definitions (e.g. conditionally compiled), expanding or jumping to it opens a definition picker; the chosen definition's implementation is used — the expansion keeps only call sites in that definition's file. The choice is remembered per node for the session.
+- **Multiple definitions**: when a function name has several definitions — cscope finds them across files / conditional branches, and auto text-scans the file (so `#ifdef`-gated duplicates count) — expanding or jumping to it opens a definition picker; the chosen definition's implementation is used (cscope keeps call sites in that file, auto re-scans that definition's body). The choice is remembered per node for the session.
 - **Lazy.nvim friendly**: `documentSymbol` is cached in the background after `LspAttach`; opening a file costs zero.
 
 ## Data sources
@@ -226,6 +226,7 @@ nvim --headless -u NONE -l tests/integration.lua       # real clangd: clean.c ca
 nvim --headless -u NONE -l tests/integration_testc.lua # real clangd: test.c name-match fallback
 nvim --headless -u NONE -l tests/integration_lsp.lua   # clangd ≥ 20: pure-LSP callout 4 levels + callin
 nvim --headless -u NONE -l tests/integration_py.lua    # pyright: Python callout(outgoing)+callin (skips if absent)
+nvim --headless -u NONE -l tests/integration_auto_multidef.lua # auto: multidef.c 条件编译多定义触发条件
 nvim --headless -u NONE -l tests/cscope.lua            # cscope provider: output parse / index discovery / availability
 nvim --headless -u NONE -l tests/integration_complex.lua # test_complex.c: diamond / cycles / fan-out / deep chain
 nvim --headless -u NONE -l tests/e2e_callout.lua         # end-to-end: open file, place cursor, run :Callout (CI)

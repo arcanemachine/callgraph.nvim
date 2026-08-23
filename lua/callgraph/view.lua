@@ -9,6 +9,7 @@ local graph_mod = require('callgraph.graph')
 local layout_mod = require('callgraph.layout')
 local picker = require('callgraph.picker')
 local render_mod = require('callgraph.render')
+local scanner = require('callgraph.scanner')
 local lsp_mod = require('callgraph.lsp')
 local source_mod = require('callgraph.source')
 local util = require('callgraph.util')
@@ -392,7 +393,7 @@ end
 
 -- Forward declarations: the helpers are defined after toggle_expand but
 -- referenced inside it.
-local is_cscope_node, filtered_fetch, expand_normal, expand_with_def
+local is_call_site_node, filtered_fetch, expand_normal, expand_with_def, query_definitions
 
 function M.toggle_expand()
   local tab = active_tab()
@@ -400,9 +401,8 @@ function M.toggle_expand()
   local node = tab.graph.nodes[tab.selected_id]
   if not node then return end
   local fetch = source_mod.make_fetch(state.encoding, state.client, config.get())
-  if is_cscope_node(node) then
-    local cscope = source_mod.provider('cscope')
-    cscope.find_definitions(node.name):next(function(defs)
+  if is_call_site_node(node) then
+    query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
         -- Several definitions: the user must pick one before we can expand
         -- against the right implementation. Remember the choice on the node.
@@ -425,16 +425,52 @@ function M.toggle_expand()
   end
 end
 
--- cscope nodes carry the call-site location in uri/range (cscope -L output is
--- call sites, not definitions). Detect them by uri/line matching the call_site.
-local function is_cscope_node(node)
-  local cscope = source_mod.provider('cscope')
-  return cscope ~= nil
-    and node.call_site ~= nil
+-- Call-site nodes carry the call-site location in uri/range (cscope -L output
+-- and auto's name-match fallback are call sites, not definitions). Detect them
+-- by uri/line matching the call_site.
+local function is_call_site_node(node)
+  return node.call_site ~= nil
     and node.uri == node.call_site.uri
     and node.range ~= nil
     and node.range.start ~= nil
     and node.range.start.line == node.call_site.line
+end
+
+-- Text-scan `node`'s own file for same-name definition lines (the auto /
+-- no-LSP path): unlike a semantic server, this sees conditionally-compiled
+-- duplicates.
+local function text_definitions(node)
+  local d = util.Deferred.new()
+  local uri = node.uri
+  if not uri then d:resolve({}); return d end
+  local fname = vim.uri_to_fname(uri)
+  if vim.fn.filereadable(fname) ~= 1 then d:resolve({}); return d end
+  local bufnr = vim.uri_to_bufnr(uri)
+  vim.fn.bufload(bufnr)
+  local text = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), '\n')
+  local defs = {}
+  for _, p in ipairs(scanner.find_definitions(text, node.name)) do
+    defs[#defs + 1] = { uri = uri, line = p[1] }
+  end
+  d:resolve(defs)
+  return d
+end
+
+-- Definitions for `node`: cscope (cross-file) when its database resolves the
+-- name, else a text scan of the node's file (auto single-file fallback).
+local function query_definitions(node)
+  local d = util.Deferred.new()
+  local cscope = source_mod.provider('cscope')
+  cscope.find_definitions(node.name):next(function(defs)
+    if defs and #defs > 0 then
+      d:resolve(defs)
+    else
+      text_definitions(node):next(function(tdefs)
+        d:resolve(tdefs)
+      end)
+    end
+  end)
+  return d
 end
 
 -- Wrap a fetch so results are restricted to calls in `def`'s file — the chosen
@@ -469,7 +505,17 @@ local function expand_normal(tab, node, fetch)
 end
 
 local function expand_with_def(tab, node, fetch, def)
-  local d = graph_mod.rebuild(tab.graph, node, filtered_fetch(fetch, def))
+  -- auto: same-file definition — point the node at that definition's range so
+  -- the fallback rescans its body; cscope: cross-file — filter call sites to
+  -- the chosen definition's file.
+  local d
+  if def.uri == node.uri then
+    node.range = { start = { line = def.line, character = 0 }, ['end'] = { line = def.line + 1, character = 0 } }
+    node.selectionRange = node.range
+    d = graph_mod.rebuild(tab.graph, node, fetch)
+  else
+    d = graph_mod.rebuild(tab.graph, node, filtered_fetch(fetch, def))
+  end
   d:next(function(g)
     tab.graph = g
     M.render_view()
@@ -563,8 +609,7 @@ function M.jump_to_def()
   -- is call sites, not definitions). Jump to the real definition via `cscope -1`
   -- — preferring the definition the user already chose when expanding; with
   -- several definitions, ask which one to jump to.
-  if is_cscope_node(node) then
-    local cscope = source_mod.provider('cscope')
+  if is_call_site_node(node) then
     local function jump_to_def(def)
       lsp_mod.jump_to_location(def.uri,
         { start = { line = def.line, character = 0 }, ['end'] = { line = def.line, character = 0 } },
@@ -574,7 +619,7 @@ function M.jump_to_def()
       jump_to_def(node.chosen_def)
       return
     end
-    cscope.find_definitions(node.name):next(function(defs)
+    query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
         picker.pick(defs, function(def)
           if def then

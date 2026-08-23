@@ -138,4 +138,103 @@ function M.scan_calls(text)
   return out
 end
 
+--- Find all definition lines for `name` in C source `text`. A text-level scan:
+--- a definition is `<rettype> name(`, i.e. the identifier `name` followed by
+--- `(` whose preceding token is a non-keyword identifier (the return type).
+--- This sees BOTH conditionally-compiled branches (`#ifdef`/`#else`) — unlike a
+--- semantic server, which only parses the active one. Skips comments, strings,
+--- char literals and preprocessor directive lines.
+--- @param text string Source text (a whole file, not a function range).
+--- @param name string Function name to look for.
+--- @return table[] list of { line, byte_col } (0-based) definition starts.
+function M.find_definitions(text, name)
+  local out = {}
+  local n = #text
+  local line, col = 0, 0
+  local prev_ident = nil -- previous identifier token (or nil after punctuation)
+  local i = 1
+  while i <= n do
+    local b = string.byte(text, i)
+    if b == 0x0A then
+      line = line + 1
+      col = 0
+      i = i + 1
+    elseif b == 0x23 and col == 0 then
+      -- preprocessor directive line (whole line skipped, not just #ifdef)
+      while i <= n and string.byte(text, i) ~= 0x0A do i = i + 1 end
+    elseif b == 0x2F and string.byte(text, i + 1) == 0x2F then
+      while i <= n and string.byte(text, i) ~= 0x0A do i = i + 1 end
+    elseif b == 0x2F and string.byte(text, i + 1) == 0x2A then
+      i = i + 2
+      col = col + 2
+      while i <= n do
+        local cb = string.byte(text, i)
+        if cb == 0x0A then
+          line = line + 1
+          col = 0
+          i = i + 1
+        elseif cb == 0x2A and string.byte(text, i + 1) == 0x2F then
+          col = col + 1
+          i = i + 2
+          break
+        else
+          col = col + 1
+          i = i + 1
+        end
+      end
+    elseif b == 0x22 or b == 0x27 then
+      local quote = b
+      i = i + 1
+      while i <= n do
+        local cb = string.byte(text, i)
+        if cb == 0x5C then
+          i = i + 2
+          col = col + 2
+        elseif cb == 0x0A then
+          line = line + 1
+          col = 0
+          i = i + 1
+        elseif cb == quote then
+          col = col + 1
+          i = i + 1
+          break
+        else
+          col = col + 1
+          i = i + 1
+        end
+      end
+    elseif is_ident_start(b) then
+      local id_line, id_col = line, col
+      local start_i = i
+      i = i + 1
+      col = col + 1
+      while i <= n and is_ident_char(string.byte(text, i)) do
+        i = i + 1
+        col = col + 1
+      end
+      local word = text:sub(start_i, i - 1)
+      -- Lookahead past spaces for '('.
+      local j = i
+      local c = string.byte(text, j)
+      while c == 0x20 or c == 0x09 or c == 0x0D do
+        j = j + 1
+        c = string.byte(text, j)
+      end
+      if c == 0x28 and word == name then
+        -- Definition iff the preceding token is a non-keyword identifier
+        -- (the return type) — not a call (return impl(), x = impl(), etc.).
+        if prev_ident and not KEYWORDS[prev_ident] then
+          out[#out + 1] = { id_line, id_col }
+        end
+      end
+      prev_ident = word
+    else
+      if b ~= 0x20 and b ~= 0x09 and b ~= 0x0D then prev_ident = nil end
+      col = col + 1
+      i = i + 1
+    end
+  end
+  return out
+end
+
 return M

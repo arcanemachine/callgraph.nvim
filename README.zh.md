@@ -55,7 +55,7 @@
 - **多标签页**：一个视图内可同时打开多个「函数 + 方向」的图，winbar 显示标签，`<Tab>` 切换。
 - **多来源**：调用关系可来自 `lsp` / `cscope` / `ctags` / `auto` 多种方式，按 `sources` 配置的优先级取第一个有结果者；启动时后台探测各来源是否可用（如 cscope 二进制/索引不存在则自动跳过），结果缓存避免每次查询重新探测。
 - **查询缓存**：每个符号的调用关系每次会话只查询一次——树形展开会沿多条路径重复到达同一函数，但底层查询（cscope / LSP / auto）不会为它重复执行，跨 rebuild / 展开也复用。
-- **多处定义（cscope）**：函数名在 cscope 里有多个定义时（如条件编译），展开或跳转会弹出定义选择窗口；选中的定义决定展开——子调用只保留该定义所在文件的调用点。选择按节点在会话内记住。
+- **多处定义**：函数名有多个定义时（cscope 跨文件/条件编译分支；auto 文本扫描源文件，`#ifdef` 门控的同名定义也算），展开或跳转会弹出定义选择窗口；选中的定义决定展开——cscope 只保留该定义所在文件的调用点，auto 重新扫描该定义的函数体。选择按节点在会话内记住。
 - **Lazy.nvim 友好**：`documentSymbol` 在 `LspAttach` 后后台异步缓存，打开文件零阻塞。
 
 ## 数据来源
@@ -220,6 +220,7 @@ nvim --headless -u NONE -l tests/integration.lua       # 真 clangd：clean.c �
 nvim --headless -u NONE -l tests/integration_testc.lua # 真 clangd：test.c 先调用后声明的 name-match 兜底
 nvim --headless -u NONE -l tests/integration_lsp.lua   # clangd ≥ 20：纯 LSP callout 4 层 + callin
 nvim --headless -u NONE -l tests/integration_py.lua    # pyright：Python callout(outgoing) + callin（无 pyright 则跳过）
+nvim --headless -u NONE -l tests/integration_auto_multidef.lua # auto：multidef.c 条件编译多定义触发条件
 nvim --headless -u NONE -l tests/cscope.lua            # cscope provider：输出解析 / 索引发现 / 可用性探测
 nvim --headless -u NONE -l tests/integration_complex.lua # test_complex.c：菱形 / 循环 / fan-out / 深链
 nvim --headless -u NONE -l tests/e2e_callout.lua         # 端到端：打开文件、定位光标、执行 :Callout（CI）
