@@ -583,6 +583,23 @@ expand_with_def = function(tab, node, fetch, def)
   end)
 end
 
+-- Force-rebuild a node's subtree with `def` — unlike expand_with_def it always
+-- rebuilds (never toggles collapse); used by reselect_def to apply a new pick.
+local function rebuild_with_def(tab, node, def)
+  if def.uri == node.uri then
+    node.range = { start = { line = def.line, character = 0 }, ['end'] = { line = def.line + 1, character = 0 } }
+    node.selectionRange = node.range
+  end
+  local fetch = M.make_fetch()
+  local d = graph_mod.rebuild(tab.graph, node, (def.uri == node.uri) and fetch or filtered_fetch(fetch, def))
+  d:next(function(g)
+    tab.graph = g
+    M.render_view()
+  end, function(err)
+    vim.notify('Callgraph: expand failed: ' .. tostring(err), vim.log.levels.ERROR)
+  end)
+end
+
 function M.change_depth(delta)
   local tab = active_tab()
   if not tab then return end
@@ -722,6 +739,26 @@ function M.jump_to_def()
   end
 end
 
+--- Re-pick the definition of a multi-definition node (in case the earlier
+--- choice was wrong). Only meaningful when config.multi_def is on; no-op
+--- otherwise.
+function M.reselect_def()
+  local tab = active_tab()
+  if not tab or not tab.graph then return end
+  local node = tab.graph.nodes[tab.selected_id]
+  if not node or not is_call_site_node(node) then return end
+  query_definitions(node):next(function(defs)
+    if defs and #defs > 1 then
+      picker.pick(defs, function(def)
+        if def then
+          node.chosen_def = def
+          rebuild_with_def(tab, node, def)
+        end
+      end)
+    end
+  end)
+end
+
 function M.hover_echo()
   if not state or not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
   local pos = vim.api.nvim_win_get_cursor(state.win)
@@ -762,6 +799,7 @@ function M.show_help()
     '  h/j/k/l / arrows    move selection',
     '  <Space>             expand / collapse',
     '  Enter / d           jump to definition',
+    '  R                   re-pick definition (multi-def)',
     '  q / Esc             close tab',
     '  r                   refresh',
     '  i / o               callin / callout',
@@ -806,6 +844,7 @@ function M.setup_keymaps()
   set(km.win_shrink, function() M.resize_window_size(-1) end)
   set(km.jump_to_def, function() M.jump_to_def() end)
   set(km.jump_to_def_alt, function() M.jump_to_def() end)
+  set(km.reselect_def, function() M.reselect_def() end)
   -- Tab keys switch between callgraph tabs. These buffer-local bindings
   -- override global ones (e.g. barbar's <Tab> -> BufferNext), so pressing Tab
   -- inside the view cycles tabs instead of leaving it.

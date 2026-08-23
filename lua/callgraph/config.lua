@@ -114,6 +114,7 @@ M.defaults = {
     win_shrink = '>', -- shrink it
     jump_to_def = '<CR>', -- jump to the definition in the main window
     jump_to_def_alt = 'd',
+    reselect_def = 'R', -- re-pick the definition of a multi-definition node
     tab_next = '<Tab>', -- next tab (overrides global mappings like barbar)
     tab_prev = '<S-Tab>', -- previous tab
     help = '?',

@@ -32,6 +32,7 @@
 | `h` `j` `k` `l` / 方向键 | 移动选中框（同行/同列对齐优先，其次空间最近） |
 | `<Space>` | 展开 / 折叠当前框（切换显示直接子节点） |
 | `<Enter>` / `d` | 跳转到函数定义（视图保持打开） |
+| `R` | 重新选择多定义节点的定义（multi_def 场景） |
 | `<Tab>` `<S-Tab>` | 多标签页切换 |
 | `q` `<Esc>` | 关闭当前 tab（最后一个 tab 关闭时关闭视图） |
 | `r` | 刷新 |
@@ -169,6 +170,7 @@ require('callgraph').setup({
     depth_down = '-',
     win_grow = '<', win_shrink = '>', -- '<' 放大 / '>' 缩小视图窗口
     jump_to_def = '<CR>', jump_to_def_alt = 'd',
+    reselect_def = 'R', -- 重新选择多定义节点的定义
     tab_next = '<Tab>', tab_prev = '<S-Tab>',
     help = '?',
   },
