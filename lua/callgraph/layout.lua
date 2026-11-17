@@ -14,23 +14,26 @@ local BOX_H = 4 -- top border, container row, name row, bottom border
 -- Row offset (from the box top) of the name row, where edges attach.
 M.NAME_ROW = 2
 
+-- The location label: `file:line` cut to max_loc_width for the box, the path
+-- relative to the working directory for the focus float, and whether the cut
+-- took anything off.
 local function text_label(graph, n, show_call_site, max_loc_width)
   if not show_call_site then return nil end
-  local loc
+  local path, line
   if n == graph.root and n.uri and n.range then
-    local path = vim.uri_to_fname(n.uri)
-    loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring((n.range.start.line or 0) + 1)
+    path, line = vim.uri_to_fname(n.uri), (n.range.start.line or 0) + 1
   elseif n.source == 'cscope' and n.call_site then
     -- cscope -L output is call sites, so show where the call happens.
-    local path = vim.uri_to_fname(n.call_site.uri)
-    loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring(n.call_site.line + 1)
+    path, line = vim.uri_to_fname(n.call_site.uri), n.call_site.line + 1
   elseif n.uri and n.range then
     -- lsp / auto: the item range is the definition — show that, not the call site.
-    local path = vim.uri_to_fname(n.uri)
-    loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring((n.range.start.line or 0) + 1)
+    path, line = vim.uri_to_fname(n.uri), (n.range.start.line or 0) + 1
   end
-  if not loc then return nil end
-  return util.truncate_left(loc, max_loc_width)
+  if not path then return nil end
+  local suffix = ':' .. tostring(line)
+  local loc = vim.fn.fnamemodify(path, ':t') .. suffix
+  local cut = util.truncate_left(loc, max_loc_width)
+  return cut, vim.fn.fnamemodify(path, ':~:.') .. suffix, cut ~= loc
 end
 
 local function all_children_visible(graph, n)
@@ -104,10 +107,11 @@ function M.layout(graph, opts, view_state)
   local texts = {}
   for id, n in pairs(graph.nodes) do
     if n.visible then
-      local container, short, sep = util.split_name(n.name or '?')
-      container = util.abbreviate(container, sep, max_name_width)
+      local full_container, short, sep = util.split_name(n.name or '?')
+      local container = util.abbreviate(full_container, sep, max_name_width)
       local name = util.truncate_left(short, max_func_width)
-      local loc = text_label(graph, n, show_call_site, max_loc_width) or ''
+      local loc, full_loc, loc_cut = text_label(graph, n, show_call_site, max_loc_width)
+      loc, full_loc = loc or '', full_loc or ''
       -- A single reserved marker slot (space + one symbol): ⟳ (cycle) or ❯
       -- (expandable). The two never co-occur, so one slot keeps widths stable
       -- across expand/collapse while reserving less space.
@@ -123,6 +127,11 @@ function M.layout(graph, opts, view_state)
         loc = loc,
         name = name,
         marker = marker,
+        full_container = full_container,
+        full_name = short,
+        full_loc = full_loc,
+        -- The box hides something: the focus float shows it in full.
+        shortened = container ~= full_container or name ~= short or loc_cut == true,
         name_width = util.char_count(name),
         width = math.max(
           util.char_count(container) + gap + util.char_count(loc),
@@ -177,6 +186,11 @@ function M.layout(graph, opts, view_state)
       text = line2,
       text_width = util.char_count(line2),
       name_width = t.name_width,
+      marker = t.marker,
+      full_container = t.full_container,
+      full_name = t.full_name,
+      full_loc = t.full_loc,
+      shortened = t.shortened,
       -- Function-name span in 0-based buffer columns: [name_start, name_end).
       name_start = col_x[c],
       name_end = col_x[c] + t.name_width,

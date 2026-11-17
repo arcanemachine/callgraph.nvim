@@ -57,6 +57,9 @@ M.defaults = {
     -- Limit for the name row (the last part of a qualified name); nil = max_name_width.
     max_func_width = nil,
     max_loc_width = 22,
+    -- When the selected box's label is shortened, show it in full in a float
+    -- over the box.
+    focus_float = true,
     -- Arrowhead glyphs (Nerd Font). Default: Font Awesome solid arrows.
     -- Alternatives:
     --   { right='', down='', up='', left='' }  -- FA chevrons (thick > style)

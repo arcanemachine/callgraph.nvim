@@ -16,6 +16,7 @@ local util = require('callgraph.util')
 
 local M = {}
 local state = nil
+local zoom_ns = vim.api.nvim_create_namespace('callgraph_zoom')
 
 -- ---------------------------------------------------------------------------
 -- Entry points
@@ -163,6 +164,12 @@ function M.open_float()
   wo.signcolumn = 'no'
   -- The canvas pads with spaces; 'list' would draw them (e.g. trail:-).
   wo.list = false
+  -- `:q` on the view bypasses M.close; the focus float must go with it.
+  vim.api.nvim_create_autocmd('WinClosed', {
+    pattern = tostring(win),
+    once = true,
+    callback = function() M.close_zoom() end,
+  })
   M.setup_keymaps()
 end
 
@@ -221,6 +228,7 @@ function M.render_view()
   })
   update_winbar()
   M.focus_selected()
+  M.update_zoom()
 end
 
 function M.resize_window(opts)
@@ -645,6 +653,7 @@ end
 
 function M.close()
   if not state then return end
+  M.close_zoom()
   local orig = state.orig_win
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     pcall(vim.api.nvim_win_close, state.win, true)
@@ -761,6 +770,106 @@ function M.hover_echo()
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- Focus float: when the selected box hides part of its label, a float over
+-- the box shows it in full (same rows: container and path, then the name).
+-- ---------------------------------------------------------------------------
+
+function M.close_zoom()
+  if not state or not state.zoom_win then return end
+  local win = state.zoom_win
+  if vim.api.nvim_win_is_valid(win) then pcall(vim.api.nvim_win_close, win, true) end
+  if not vim.api.nvim_win_is_valid(win) then
+    state.zoom_win = nil
+  else
+    -- Closing can be refused inside an autocmd (BufLeave, WinClosed): retry
+    -- after it, so the float is never left without a handle.
+    vim.schedule(function()
+      if vim.api.nvim_win_is_valid(win) then pcall(vim.api.nvim_win_close, win, true) end
+      if state and state.zoom_win == win and not vim.api.nvim_win_is_valid(win) then state.zoom_win = nil end
+    end)
+  end
+end
+
+function M.update_zoom()
+  if not state then return end
+  local opts = config.get()
+  local tab = active_tab()
+  local box = tab and tab.last_layout and tab.last_layout.boxes[tab.selected_id]
+  if not opts.window.focus_float or not box or not box.shortened
+    or not (state.win and vim.api.nvim_win_is_valid(state.win))
+    or vim.api.nvim_get_current_win() ~= state.win then
+    M.close_zoom()
+    return
+  end
+
+  local marker = vim.trim(box.marker or '')
+  local function dw(s) return vim.fn.strdisplaywidth(s) end
+  local gap1 = (box.full_container ~= '' and box.full_loc ~= '') and '  ' or ''
+  local width = math.max(
+    dw(box.full_container) + #gap1 + dw(box.full_loc),
+    dw(box.full_name) + (marker ~= '' and 1 + dw(marker) or 0),
+    box.width - 2
+  )
+  width = math.max(math.min(width, vim.o.columns - 2), 1)
+  -- Right-align the location and marker, as the box does.
+  local row1 = box.full_container
+    .. string.rep(' ', math.max(width - dw(box.full_container) - dw(box.full_loc), #gap1)) .. box.full_loc
+  local row2 = box.full_name
+    .. string.rep(' ', math.max(width - dw(box.full_name) - dw(marker), marker ~= '' and 1 or 0)) .. marker
+
+  if not (state.zoom_buf and vim.api.nvim_buf_is_valid(state.zoom_buf)) then
+    state.zoom_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[state.zoom_buf].bufhidden = 'wipe'
+  end
+  vim.api.nvim_buf_set_lines(state.zoom_buf, 0, -1, false, { row1, row2 })
+
+  -- Anchor the float's top-left corner (its border) on the box's top-left
+  -- border cell: border lands on border, text on text. Grid row r is buffer
+  -- row r - 1.
+  local top = box.row - 1
+  local line_text = vim.api.nvim_buf_get_lines(state.buf, top, top + 1, false)[1] or ''
+  local cfg = {
+    relative = 'win',
+    win = state.win,
+    bufpos = { top, util.char_to_byte(line_text, box.col - 1) },
+    row = 0,
+    col = 0,
+    width = width,
+    height = 2,
+    border = 'rounded',
+    focusable = false,
+    style = 'minimal',
+    zindex = 50,
+  }
+  if state.zoom_win and vim.api.nvim_win_is_valid(state.zoom_win) then
+    vim.api.nvim_win_set_config(state.zoom_win, cfg)
+  else
+    cfg.noautocmd = true
+    state.zoom_win = vim.api.nvim_open_win(state.zoom_buf, false, cfg)
+  end
+
+  local colors = opts.colors and opts.colors.mode ~= 'off'
+  local hl = opts.highlights
+  local normal = (colors and vim.fn.hlexists('CallgraphNormal') == 1) and 'CallgraphNormal' or 'Normal'
+  -- A clamped first row must not wrap into the name row.
+  vim.wo[state.zoom_win].wrap = false
+  vim.wo[state.zoom_win].winhighlight = 'NormalFloat:' .. normal
+    .. (colors and ',FloatBorder:CallgraphBorder' or '')
+  vim.api.nvim_buf_clear_namespace(state.zoom_buf, zoom_ns, 0, -1)
+  vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, 0, {
+    end_col = #row1, hl_group = colors and 'CallgraphLocation' or hl.loc,
+  })
+  vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, 0, {
+    end_col = #box.full_name, hl_group = colors and 'CallgraphFocus' or hl.focus,
+  })
+  if marker ~= '' then
+    vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, #row2 - #marker, {
+      end_col = #row2, hl_group = colors and 'CallgraphSymbol' or hl.focus,
+    })
+  end
+end
+
 function M.on_mouse(clicks)
   if not state or not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
   local m = vim.fn.getmousepos()
@@ -846,7 +955,19 @@ function M.setup_keymaps()
 
   vim.api.nvim_create_autocmd('CursorMoved', {
     buffer = buf,
-    callback = function() M.hover_echo() end,
+    callback = function()
+      M.hover_echo()
+      M.update_zoom()
+    end,
+  })
+  -- Entering the view doesn't fire CursorMoved; leaving it hides the float.
+  vim.api.nvim_create_autocmd('BufEnter', {
+    buffer = buf,
+    callback = function() M.update_zoom() end,
+  })
+  vim.api.nvim_create_autocmd('BufLeave', {
+    buffer = buf,
+    callback = function() M.close_zoom() end,
   })
 end
 
