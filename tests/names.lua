@@ -1,5 +1,6 @@
--- Box labels: util.split_name splits a qualified name into container and last
--- part, util.abbreviate shortens a container to fit.
+-- Labels: util.split_name splits a qualified name into container and last
+-- part, util.abbreviate shortens a container to fit, util.truncate_display
+-- cuts by display cells.
 -- Run: nvim --headless -u NONE -l tests/names.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)
@@ -47,6 +48,17 @@ local abbrevs = {
 for _, c in ipairs(abbrevs) do
   local got = util.abbreviate(c[1], c[2], c[3])
   check('abbreviate ' .. c[1] .. ' to ' .. c[3], got == c[4], got)
+end
+
+local displays = {
+  -- text, cells, expected
+  { 'short', 10, 'short' },
+  { 'abcdef', 4, 'abc…' },
+  { '日本語テキスト', 7, '日本語…' }, -- wide characters take two cells each
+}
+for _, c in ipairs(displays) do
+  local got = util.truncate_display(c[1], c[2])
+  check('truncate_display ' .. c[1] .. ' to ' .. c[2], got == c[3] and vim.fn.strdisplaywidth(got) <= c[2], got)
 end
 
 print('---')

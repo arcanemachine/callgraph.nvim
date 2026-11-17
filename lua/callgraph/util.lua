@@ -280,4 +280,19 @@ function M.truncate_left(s, maxchars)
   return '…' .. vim.fn.strcharpart(s, n - maxchars + 1)
 end
 
+--- Cut `s` to at most `cells` display cells (wide characters count double).
+function M.truncate_display(s, cells)
+  if not s then return '' end
+  if vim.fn.strdisplaywidth(s) <= cells then return s end
+  if cells <= 1 then return '…' end
+  local out, used = {}, 0
+  for _, ch in ipairs(vim.fn.split(s, '\\zs')) do
+    local w = vim.fn.strdisplaywidth(ch)
+    if used + w > cells - 1 then break end
+    out[#out + 1] = ch
+    used = used + w
+  end
+  return table.concat(out) .. '…'
+end
+
 return M

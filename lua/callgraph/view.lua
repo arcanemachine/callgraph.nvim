@@ -755,7 +755,7 @@ function M.hover_echo()
       local path = vim.fn.fnamemodify(vim.uri_to_fname(node.uri or ''), ':~:.')
       local line = (node.range and node.range.start and node.range.start.line or 0) + 1
       -- Fit the message line: a longer message wraps and stops at "Press ENTER".
-      local text = util.truncate(node.name .. '  ' .. path .. ':' .. tostring(line), vim.v.echospace)
+      local text = util.truncate_display(node.name .. '  ' .. path .. ':' .. tostring(line), vim.v.echospace)
       vim.api.nvim_echo({ { text, 'Normal' } }, false, {})
     end
   end
