@@ -208,6 +208,7 @@ function M.render_view()
     direction = tab.direction,
     selected_id = tab.selected_id,
     style = state.style,
+    orientation = state.orientation or opts.window.orientation,
   })
   tab.last_layout = layout
 
@@ -626,6 +627,14 @@ function M.resize_window_size(delta)
   M.resize_window(config.get())
 end
 
+--- Flip the graph between left-to-right and top-to-bottom for this view.
+function M.flip()
+  if not state then return end
+  local current = state.orientation or config.get().window.orientation or 'horizontal'
+  state.orientation = current == 'vertical' and 'horizontal' or 'vertical'
+  M.render_view()
+end
+
 --- Switch the box style between boxed and dense for this view.
 function M.toggle_style()
   if not state then return end
@@ -1014,6 +1023,7 @@ function M.show_help()
     '  R                   re-pick definition (multi-def)',
     '  K                   docs (LSP hover)',
     '  D                   boxed / dense boxes',
+    '  v                   left-to-right / top-to-bottom',
     '  q / Esc             close tab',
     '  r                   refresh',
     '  i / o               callin / callout',
@@ -1061,6 +1071,7 @@ function M.setup_keymaps()
   set(km.reselect_def, function() M.reselect_def() end)
   set(km.hover, function() M.hover_docs() end)
   set(km.toggle_style, function() M.toggle_style() end)
+  set(km.flip, function() M.flip() end)
   -- Tab keys switch between callgraph tabs. These buffer-local bindings
   -- override global ones (e.g. barbar's <Tab> -> BufferNext), so pressing Tab
   -- inside the view cycles tabs instead of leaving it.

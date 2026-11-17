@@ -66,6 +66,9 @@ M.defaults = {
     -- the name) or 'dense' (one borderless row, `container.name`; several
     -- times as many boxes fit). D switches it in the view.
     style = 'boxed',
+    -- 'horizontal' (callers left, callees right) or 'vertical' (callers
+    -- above, callees below; suits deep, narrow chains). v flips it in the view.
+    orientation = 'horizontal',
     -- Arrowhead glyphs (Nerd Font). Default: Font Awesome solid arrows.
     -- Alternatives:
     --   { right='', down='', up='', left='' }  -- FA chevrons (thick > style)
@@ -128,6 +131,7 @@ M.defaults = {
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
     hover = 'K', -- docs for the selected function (LSP hover)
     toggle_style = 'D', -- switch between boxed and dense boxes
+    flip = 'v', -- switch between left-to-right and top-to-bottom
     tab_next = '<Tab>', -- next tab (overrides global mappings like barbar)
     tab_prev = '<S-Tab>', -- previous tab
     help = '?',

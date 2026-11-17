@@ -93,6 +93,24 @@ local function add_forward_edge(edges, sb, tb, name_row)
   edges[#edges + 1] = { segments = segments, arrow = { row = R2, col = tgt_left - 1, dir = 'r' } }
 end
 
+-- Vertical: from below the upper box down to the lower one. Each attaches a
+-- couple of cells in from its left edge (a parent sits over its first child,
+-- so that edge drops straight); the line turns on the junction row under the
+-- upper box and the arrow sits just above the lower box.
+local function add_down_edge(edges, ub, lb)
+  local function attach(b) return b.col + (b.dense and 1 or 2) end
+  local ua, la = attach(ub), attach(lb)
+  local J = ub.row + ub.height -- junction row, just below the upper box
+  local segments = {}
+  -- Start inside the upper box's last row (drawn over by the box) so the
+  -- junction cell connects upward.
+  add_run(segments, ub.row + ub.height - 1, ua, J, ua, 'v')
+  if ua ~= la then add_run(segments, J, math.min(ua, la), J, math.max(ua, la), 'h') end
+  -- Down to the arrow cell, so the corner above it connects downward.
+  add_run(segments, J, la, lb.row - 1, la, 'v')
+  edges[#edges + 1] = { segments = segments, arrow = { row = lb.row - 1, col = la, dir = 'd' } }
+end
+
 --- Compute the full layout for a graph (tree mode).
 function M.layout(graph, opts, view_state)
   local win = opts.window
@@ -166,7 +184,12 @@ function M.layout(graph, opts, view_state)
     end
   end
 
-  -- Size each depth column by its widest visible box.
+  -- Levels: the index col_of gives (callers before the root, callees after).
+  -- Horizontal: levels are columns, each as wide as its widest box (sources
+  -- in a column share one edge channel). Vertical: levels are rows, callers
+  -- above; each box keeps its own width, since width is the scarce axis.
+  local vertical = view_state and view_state.orientation == 'vertical'
+  local level_gap = 2 -- vertical: one junction row and one arrow row
   local col_width = {}
   local max_col = 0
   for id, n in pairs(graph.nodes) do
@@ -176,24 +199,38 @@ function M.layout(graph, opts, view_state)
       col_width[c] = math.max(col_width[c] or 0, texts[id].width + 2)
     end
   end
-
   local col_x = {}
   local x = 3 -- left margin (room for edge arrows / verticals into column 0)
   for c = 0, max_col do
     col_x[c] = x
     x = x + (col_width[c] or 0) + col_gap
   end
+  local function level_pos(c)
+    if vertical then return 1 + c * (BOX_H + level_gap) end
+    return col_x[c]
+  end
+  local function box_width(node, c)
+    if vertical then return texts[node.id].width + 2 end
+    return col_width[c] or 0
+  end
 
-  -- Tree layout: rows are assigned by a post-order DFS so each node's subtree
-  -- occupies a contiguous vertical band and sibling subtrees never overlap.
-  -- That keeps every parent->child L-shaped edge inside its own band — no
-  -- shared vertical channels, no crossings.
+  -- Tree layout: bands are assigned by a post-order DFS so each node's
+  -- subtree occupies a contiguous band (rows in horizontal, columns in
+  -- vertical) and sibling subtrees never overlap. That keeps every
+  -- parent->child L-shaped edge inside its own band — no crossings.
   local boxes = {}
-  local max_bottom = 0
-  local y_cursor = 1
-  local function make_box(node, c, row)
-    local w = col_width[c] or 0
+  local max_bottom, max_right = 0, 0
+  local cursor = vertical and 2 or 1
+  local band_gap = vertical and col_gap or row_gap
+  local function band_size(node, c)
+    if vertical then return box_width(node, c) end
+    return BOX_H
+  end
+  local function make_box(node, c, band)
+    local w = box_width(node, c)
     local t = texts[node.id]
+    local row, col
+    if vertical then row, col = level_pos(c), band else row, col = band, level_pos(c) end
     -- Pad both rows to the inner width so the location and marker line up on
     -- the right edge.
     local inner = w - 2
@@ -205,7 +242,7 @@ function M.layout(graph, opts, view_state)
     local box = {
       id = node.id,
       row = row,
-      col = col_x[c],
+      col = col,
       width = w,
       height = BOX_H,
       dense = dense or nil,
@@ -214,7 +251,7 @@ function M.layout(graph, opts, view_state)
       text = line2,
       text_width = util.char_count(line2),
       -- Dense: the last text column, where edges leaving the box start from.
-      text_end = dense and (col_x[c] + util.char_count(line2)) or nil,
+      text_end = dense and (col + util.char_count(line2)) or nil,
       -- Characters before the name on the name row (dense: the container).
       name_offset = dense and util.char_count(t.prefix) or 0,
       name_width = t.name_width,
@@ -225,11 +262,12 @@ function M.layout(graph, opts, view_state)
       full_loc = t.full_loc,
       shortened = t.shortened,
       -- Function-name span in 0-based buffer columns: [name_start, name_end).
-      name_start = col_x[c] + (dense and util.char_count(t.prefix) or 0),
-      name_end = col_x[c] + (dense and util.char_count(t.prefix) or 0) + t.name_width,
+      name_start = col + (dense and util.char_count(t.prefix) or 0),
+      name_end = col + (dense and util.char_count(t.prefix) or 0) + t.name_width,
     }
     boxes[node.id] = box
-    if row + BOX_H - 1 > max_bottom then max_bottom = row + BOX_H - 1 end
+    max_bottom = math.max(max_bottom, row + BOX_H - 1)
+    max_right = math.max(max_right, col + w - 1)
     return box
   end
   local function visible_children(node, side)
@@ -240,74 +278,69 @@ function M.layout(graph, opts, view_state)
     end
     return out
   end
+  -- Place `children` from the cursor; returns the first child's band start.
   local place
-  -- A 'both' root: each side is its own band from the same top, so callers
-  -- and callees line up beside the root.
-  local function place_both_root(node)
-    local start = y_cursor
-    local top, bottom
-    for _, side in ipairs({ 'callin', 'callout' }) do
-      y_cursor = start
-      local side_top
-      for _, ch in ipairs(visible_children(node, side)) do
-        local t, b = place(ch)
-        side_top = side_top or t
-        bottom = math.max(bottom or b, b)
-      end
-      if side_top then top = math.min(top or side_top, side_top) end
+  local function place_children(children)
+    local first
+    for _, ch in ipairs(children) do
+      local start = place(ch)
+      first = first or start
     end
-    if not top then
-      top, bottom = start, start
-      y_cursor = start + BOX_H + row_gap
-    else
-      y_cursor = math.max(y_cursor, bottom + BOX_H + row_gap)
-    end
-    make_box(node, col_of(node), top)
-    return top, bottom
+    return first
+  end
+  -- After a parent: the cursor moves past the parent itself too (in vertical
+  -- a parent can be wider than its children's band).
+  local function finish(node, c, start)
+    cursor = math.max(cursor, start + band_size(node, c) + band_gap)
+    make_box(node, c, start)
+    return start
   end
   place = function(node)
-    if graph.direction == 'both' and node == graph.root then return place_both_root(node) end
-    local children = visible_children(node)
-    local top, bottom
-    if #children == 0 then
-      top, bottom = y_cursor, y_cursor
-      y_cursor = y_cursor + BOX_H + row_gap
-    else
-      for _, ch in ipairs(children) do
-        local t, b = place(ch)
-        if not top then top = t end
-        bottom = b
+    local c = col_of(node)
+    if graph.direction == 'both' and node == graph.root then
+      -- Each side is its own band from the same start, so callers and
+      -- callees line up beside (or above and below) the root.
+      local from, reach, start = cursor, cursor, nil
+      for _, side in ipairs({ 'callin', 'callout' }) do
+        cursor = from
+        local first = place_children(visible_children(node, side))
+        if first then start = math.min(start or first, first) end
+        reach = math.max(reach, cursor)
       end
-      -- Align the parent to its first child's top so its outgoing edges fan
-      -- top-down to every child.
-      top = boxes[children[1].id].row
+      cursor = reach
+      return finish(node, c, start or from)
     end
-    make_box(node, col_of(node), top)
-    return top, bottom
+    local children = visible_children(node)
+    if #children == 0 then
+      local start = cursor
+      return finish(node, c, start)
+    end
+    -- Align the parent to its first child so its edges fan out from there.
+    return finish(node, c, place_children(children))
   end
   place(graph.root)
 
   local gutter_row = max_bottom + 2
   local height = gutter_row + 1
-  local width = x - col_gap + 1 -- right margin
+  local width = (vertical and (max_right + 2) or (x - col_gap + 1)) -- right margin
   if width < 1 then width = 1 end
 
-  -- Route edges: parent -> child between adjacent columns. For callin the
-  -- parent (deeper) sits right of its callers, so swap to keep the left box
-  -- as the source of the L-shaped edge.
+  -- Route edges between each parent and child. Horizontal: the left box is
+  -- the source of an L-shaped edge into the right one. Vertical: the upper
+  -- box into the lower one. Either way the arrow points at the callee.
   local edges = {}
   for id, n in pairs(graph.nodes) do
     if n.visible then
       for _, cid in ipairs(n.children) do
         local c = graph.nodes[cid]
-        if c and c.visible then
-          local s, t = n, c
-          local sb, tb = boxes[s.id], boxes[t.id]
-          if sb and tb then
-            if sb.col > tb.col then s, t = t, s; sb, tb = tb, sb end
-            if sb.col < tb.col then
-              add_forward_edge(edges, sb, tb, name_row)
-            end
+        local sb, tb = boxes[n.id], c and c.visible and boxes[cid]
+        if sb and tb then
+          if vertical then
+            if sb.row > tb.row then sb, tb = tb, sb end
+            if sb.row < tb.row then add_down_edge(edges, sb, tb) end
+          else
+            if sb.col > tb.col then sb, tb = tb, sb end
+            if sb.col < tb.col then add_forward_edge(edges, sb, tb, name_row) end
           end
         end
       end
@@ -323,6 +356,7 @@ function M.layout(graph, opts, view_state)
     max_col = max_col,
     style = style,
     name_row = name_row,
+    orientation = vertical and 'vertical' or 'horizontal',
   }
 end
 
