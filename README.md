@@ -35,6 +35,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `<Space>` | expand / collapse the focused box |
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |
+| `K` | docs for the selected function (LSP hover) |
 | `<Tab>` `<S-Tab>` | cycle tabs |
 | `q` `<Esc>` | close the current tab (closes the view when the last tab closes) |
 | `r` | refresh |
@@ -184,6 +185,7 @@ require('callgraph').setup({
     win_grow = '<', win_shrink = '>', -- '<' grow / '>' shrink the view window
     jump_to_def = '<CR>', jump_to_def_alt = 'd',
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
+    hover = 'K',        -- docs for the selected function (LSP hover)
     tab_next = '<Tab>', tab_prev = '<S-Tab>',
     help = '?',
   },

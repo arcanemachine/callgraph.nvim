@@ -870,6 +870,55 @@ function M.update_zoom()
   end
 end
 
+-- ---------------------------------------------------------------------------
+-- Docs: LSP hover for the selected node (K)
+-- ---------------------------------------------------------------------------
+
+function M.hover_docs()
+  local tab = active_tab()
+  local node = tab and tab.graph and tab.graph.nodes[tab.selected_id]
+  if not node or not node.uri then return end
+  local client = state.client
+  if not client or not client.request or client:is_stopped() then
+    vim.notify('Callgraph: no language server for docs', vim.log.levels.WARN)
+    return
+  end
+  local range = node.selectionRange or node.range
+  if not range then return end
+
+  -- Servers answer reliably only for open documents: load the file and make
+  -- sure the client has it (didOpen), as jumping to it would.
+  local bufnr = vim.fn.bufadd(vim.uri_to_fname(node.uri))
+  vim.fn.bufload(bufnr)
+  if #vim.lsp.get_clients({ bufnr = bufnr, id = client.id }) == 0 then
+    vim.lsp.buf_attach_client(bufnr, client.id)
+  end
+
+  local asked, graph_buf = tab.selected_id, state.buf
+  M.close_zoom()
+  client:request('textDocument/hover', {
+    textDocument = { uri = node.uri },
+    position = range.start,
+  }, function(err, result)
+    -- Drop a late answer: the selection moved or the view was left.
+    if not state or active_tab() ~= tab or tab.selected_id ~= asked
+      or vim.api.nvim_get_current_buf() ~= graph_buf then
+      return
+    end
+    local lines = {}
+    if not err and result and result.contents then
+      lines = vim.lsp.util.convert_input_to_markdown_lines(result.contents)
+    end
+    while lines[1] and vim.trim(lines[1]) == '' do table.remove(lines, 1) end
+    while lines[#lines] and vim.trim(lines[#lines]) == '' do table.remove(lines) end
+    if #lines == 0 then
+      vim.notify('Callgraph: no docs for ' .. (node.name or '?'), vim.log.levels.INFO)
+      return
+    end
+    vim.lsp.util.open_floating_preview(lines, 'markdown', { border = 'rounded', focus_id = 'callgraph_hover' })
+  end, bufnr)
+end
+
 function M.on_mouse(clicks)
   if not state or not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
   local m = vim.fn.getmousepos()
@@ -896,6 +945,7 @@ function M.show_help()
     '  <Space>             expand / collapse',
     '  Enter / d           jump to definition',
     '  R                   re-pick definition (multi-def)',
+    '  K                   docs (LSP hover)',
     '  q / Esc             close tab',
     '  r                   refresh',
     '  i / o               callin / callout',
@@ -941,6 +991,7 @@ function M.setup_keymaps()
   set(km.jump_to_def, function() M.jump_to_def() end)
   set(km.jump_to_def_alt, function() M.jump_to_def() end)
   set(km.reselect_def, function() M.reselect_def() end)
+  set(km.hover, function() M.hover_docs() end)
   -- Tab keys switch between callgraph tabs. These buffer-local bindings
   -- override global ones (e.g. barbar's <Tab> -> BufferNext), so pressing Tab
   -- inside the view cycles tabs instead of leaving it.
