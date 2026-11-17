@@ -37,6 +37,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |
 | `K` | docs for the selected function (LSP hover) |
+| `D` | switch between boxed and dense boxes |
 | `<Tab>` `<S-Tab>` | cycle tabs |
 | `q` `<Esc>` | close the current tab (closes the view when the last tab closes) |
 | `r` | refresh |
@@ -54,6 +55,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Cycles**: when a back edge is detected the node is not expanded again; a highlighted **⟳** terminal is shown next to the name and no back edge is drawn.
 - **Crossing-free edges**: rows are assigned so each subtree occupies a contiguous band; parent→child edges never overlap other edges.
 - **Two-row boxes**: a qualified name (`Mod.Sub.fun/1`, `ns::Cls::m`, `Cls#m`) splits at its last separator: the container and `file:line` sit on a dim first row, the last part on the second. A container wider than `max_name_width` shortens its parts to initials from the left (`ShopServiceWeb` → `SSW`), keeping the last part.
+- **Dense style** (`window.style = 'dense'`, or `D`): one borderless row per function, `container.name ❯`, siblings on consecutive rows — several times as many functions fit. The location moves to the message line.
 - **Focus float**: when the selected box's label is shortened, a float over the box shows it in full — the whole container, the path relative to the working directory, the whole name (`focus_float`).
 - **Location labels**: each box shows `file:line` — the definition for LSP/auto sources, the call site for cscope (`show_call_site` can be turned off).
 - **Long-name truncation**: over-wide function names keep their end (`…Scheduler.start_job/1`), where a qualified name differs; hovering shows the full path in the message area.
@@ -151,6 +153,7 @@ require('callgraph').setup({
     max_func_width = nil,    -- name-row truncation (nil = max_name_width)
     max_loc_width = 22,      -- location label truncation
     focus_float = true,      -- full label in a float over a shortened selected box
+    style = 'boxed',         -- 'boxed' | 'dense' (one row per function); D switches
     arrows = { right='', down='', up='', left='' }, -- Nerd Font arrows
     collapse_marker = '❯',  -- expandable marker: '❯' thick | '▶' large | '▸' small | '▷' outline
   },
@@ -188,6 +191,7 @@ require('callgraph').setup({
     jump_to_def = '<CR>', jump_to_def_alt = 'd',
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
     hover = 'K',        -- docs for the selected function (LSP hover)
+    toggle_style = 'D', -- boxed / dense boxes
     tab_next = '<Tab>', tab_prev = '<S-Tab>',
     help = '?',
   },

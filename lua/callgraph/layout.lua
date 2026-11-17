@@ -10,9 +10,14 @@ local util = require('callgraph.util')
 
 local M = {}
 
-local BOX_H = 4 -- top border, container row, name row, bottom border
--- Row offset (from the box top) of the name row, where edges attach.
-M.NAME_ROW = 2
+-- Box geometry per style. boxed: top border, container row, name row, bottom
+-- border. dense: one borderless row, `container.name ❯`.
+-- name_row: offset from the box top of the row edges attach to.
+M.STYLES = {
+  boxed = { height = 4, name_row = 2 },
+  dense = { height = 1, name_row = 0 },
+}
+M.NAME_ROW = M.STYLES.boxed.name_row
 
 -- The location label: `file:line` cut to max_loc_width for the box, the path
 -- relative to the working directory for the focus float, and whether the cut
@@ -51,16 +56,19 @@ local function add_run(segments, r1, c1, r2, c2, dir)
   segments[#segments + 1] = { r1 = r1, c1 = c1, r2 = r2, c2 = c2, dir = dir }
 end
 
-local function add_forward_edge(edges, sb, tb)
-  local R1 = sb.row + M.NAME_ROW
-  local R2 = tb.row + M.NAME_ROW
+local function add_forward_edge(edges, sb, tb, name_row)
+  local R1 = sb.row + name_row
+  local R2 = tb.row + name_row
   local src_right = sb.col + sb.width - 1
   local tgt_left = tb.col
+  -- A dense box is its column's width but its text may be shorter: the line
+  -- starts one blank after the text and runs to the column's shared channel.
+  local start = sb.text_end and (sb.text_end + 2) or (src_right + 1)
   local segments = {}
   if R1 == R2 then
     -- straight: dashes up to the arrowhead at the child's left gap
-    if tgt_left - 2 >= src_right + 1 then
-      add_run(segments, R1, src_right + 1, R1, tgt_left - 2, 'h')
+    if tgt_left - 2 >= start then
+      add_run(segments, R1, start, R1, tgt_left - 2, 'h')
     end
   else
     -- Vertical channel near the source: a same-row (straight) edge runs
@@ -69,8 +77,8 @@ local function add_forward_edge(edges, sb, tb)
     -- out left of the vertical line — that is fixed there.)
     local xj = src_right + 2
     if xj > tgt_left - 3 then xj = tgt_left - 3 end
-    if xj >= src_right + 1 then
-      add_run(segments, R1, src_right + 1, R1, xj, 'h')
+    if xj >= start then
+      add_run(segments, R1, start, R1, xj, 'h')
     end
     if R1 < R2 then
       add_run(segments, R1, xj, R2, xj, 'v')
@@ -92,7 +100,12 @@ function M.layout(graph, opts, view_state)
   local max_func_width = win.max_func_width or max_name_width
   local max_loc_width = win.max_loc_width
   local show_call_site = opts.show_call_site
-  local row_gap = win.row_gap
+  local style = (view_state and view_state.style) or win.style or 'boxed'
+  local dense = style == 'dense'
+  local BOX_H = M.STYLES[style].height
+  local name_row = M.STYLES[style].name_row
+  -- Dense rows stack with no gap: that is the point of the style.
+  local row_gap = dense and 0 or win.row_gap
   local col_gap = win.col_gap
 
   local max_depth = graph.max_visible_depth
@@ -128,18 +141,24 @@ function M.layout(graph, opts, view_state)
         marker = ' ' .. win.collapse_marker
       end
       local gap = (container ~= '' and loc ~= '') and 2 or 0
+      -- Dense: one row; the location lives in the bottom line only.
+      local prefix = container ~= '' and (container .. sep) or ''
+      local dense_text = prefix .. util.truncate_left(short, max_func_width) .. (vim.trim(marker) ~= '' and marker or '')
       texts[n.id] = {
+        prefix = prefix,
+        dense_text = dense_text,
         container = container,
         loc = loc,
         name = name,
         marker = marker,
         full_container = full_container,
+        full_prefix = full_container ~= '' and (full_container .. sep) or '',
         full_name = short,
         full_loc = full_loc,
         -- The box hides something: the focus float shows it in full.
-        shortened = container ~= full_container or name ~= short or loc_cut == true,
+        shortened = container ~= full_container or name ~= short or (not dense and loc_cut == true),
         name_width = util.char_count(name),
-        width = math.max(
+        width = dense and util.char_count(dense_text) or math.max(
           util.char_count(container) + gap + util.char_count(loc),
           util.char_count(name) + util.char_count(marker)
         ),
@@ -182,24 +201,32 @@ function M.layout(graph, opts, view_state)
     local pad2 = inner - t.name_width - util.char_count(t.marker)
     local line1 = t.container .. string.rep(' ', math.max(pad1, 0)) .. t.loc
     local line2 = t.name .. string.rep(' ', math.max(pad2, 0)) .. t.marker
+    if dense then line1, line2 = nil, t.dense_text end
     local box = {
       id = node.id,
       row = row,
       col = col_x[c],
       width = w,
       height = BOX_H,
+      dense = dense or nil,
+      name_row = name_row,
       line1 = line1,
       text = line2,
       text_width = util.char_count(line2),
+      -- Dense: the last text column, where edges leaving the box start from.
+      text_end = dense and (col_x[c] + util.char_count(line2)) or nil,
+      -- Characters before the name on the name row (dense: the container).
+      name_offset = dense and util.char_count(t.prefix) or 0,
       name_width = t.name_width,
       marker = t.marker,
       full_container = t.full_container,
+      full_prefix = t.full_prefix,
       full_name = t.full_name,
       full_loc = t.full_loc,
       shortened = t.shortened,
       -- Function-name span in 0-based buffer columns: [name_start, name_end).
-      name_start = col_x[c],
-      name_end = col_x[c] + t.name_width,
+      name_start = col_x[c] + (dense and util.char_count(t.prefix) or 0),
+      name_end = col_x[c] + (dense and util.char_count(t.prefix) or 0) + t.name_width,
     }
     boxes[node.id] = box
     if row + BOX_H - 1 > max_bottom then max_bottom = row + BOX_H - 1 end
@@ -279,7 +306,7 @@ function M.layout(graph, opts, view_state)
           if sb and tb then
             if sb.col > tb.col then s, t = t, s; sb, tb = tb, sb end
             if sb.col < tb.col then
-              add_forward_edge(edges, sb, tb)
+              add_forward_edge(edges, sb, tb, name_row)
             end
           end
         end
@@ -294,6 +321,8 @@ function M.layout(graph, opts, view_state)
     edges = edges,
     gutter_row = gutter_row,
     max_col = max_col,
+    style = style,
+    name_row = name_row,
   }
 end
 

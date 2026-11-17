@@ -62,6 +62,10 @@ M.defaults = {
     -- When the selected box's label is shortened, show it in full in a float
     -- over the box.
     focus_float = true,
+    -- Box style: 'boxed' (bordered, two rows: container and location, then
+    -- the name) or 'dense' (one borderless row, `container.name`; several
+    -- times as many boxes fit). D switches it in the view.
+    style = 'boxed',
     -- Arrowhead glyphs (Nerd Font). Default: Font Awesome solid arrows.
     -- Alternatives:
     --   { right='', down='', up='', left='' }  -- FA chevrons (thick > style)
@@ -123,6 +127,7 @@ M.defaults = {
     jump_to_def_alt = 'd',
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
     hover = 'K', -- docs for the selected function (LSP hover)
+    toggle_style = 'D', -- switch between boxed and dense boxes
     tab_next = '<Tab>', -- next tab (overrides global mappings like barbar)
     tab_prev = '<S-Tab>', -- previous tab
     help = '?',

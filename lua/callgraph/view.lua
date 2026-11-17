@@ -207,6 +207,7 @@ function M.render_view()
   local layout = layout_mod.layout(tab.graph, opts, {
     direction = tab.direction,
     selected_id = tab.selected_id,
+    style = state.style,
   })
   tab.last_layout = layout
 
@@ -303,8 +304,10 @@ function M.focus_selected()
       -- aligning the box's right edge — the old edge-alignment pushed the
       -- cursor out of the window's left side for wide boxes, making the
       -- selection invisible.
-      local box_left = char_idx - 1 -- box left border column
-      local box_right = char_idx + box.width - 2 -- box right border column
+      -- From the box, not the cursor: the cursor sits on the name, which in a
+      -- dense box comes after the container.
+      local box_left = box.col - 1 -- box left edge (0-based column)
+      local box_right = box.col + box.width - 2 -- box right edge
       if box.width <= winw - 2 * margin then
         local bl = box_left - margin
         local br = box_right + margin
@@ -623,6 +626,14 @@ function M.resize_window_size(delta)
   M.resize_window(config.get())
 end
 
+--- Switch the box style between boxed and dense for this view.
+function M.toggle_style()
+  if not state then return end
+  local current = state.style or config.get().window.style or 'boxed'
+  state.style = current == 'dense' and 'boxed' or 'dense'
+  M.render_view()
+end
+
 --- Switch to the other direction for the current root (a different tab).
 function M.set_direction(dir)
   local tab = active_tab()
@@ -806,6 +817,7 @@ function M.update_zoom()
 
   local marker = vim.trim(box.marker or '')
   local function dw(s) return vim.fn.strdisplaywidth(s) end
+  if box.dense then return M.update_zoom_dense(box, marker, opts) end
   local gap1 = (box.full_container ~= '' and box.full_loc ~= '') and '  ' or ''
   local width = math.max(
     dw(box.full_container) + #gap1 + dw(box.full_loc),
@@ -867,6 +879,60 @@ function M.update_zoom()
   if marker ~= '' then
     vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, #row2 - #marker, {
       end_col = #row2, hl_group = colors and 'CallgraphSymbol' or hl.focus,
+    })
+  end
+end
+
+-- Dense: one borderless row exactly over the box's text, the whole
+-- `container.name ❯`, set apart by its background. The location stays in the
+-- bottom line; a border would cover the neighbours j/k move to.
+function M.update_zoom_dense(box, marker, opts)
+  local text = box.full_prefix .. box.full_name .. (marker ~= '' and (' ' .. marker) or '')
+  local width = math.max(math.min(vim.fn.strdisplaywidth(text), vim.o.columns - 2), 1)
+  if not (state.zoom_buf and vim.api.nvim_buf_is_valid(state.zoom_buf)) then
+    state.zoom_buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[state.zoom_buf].bufhidden = 'wipe'
+  end
+  vim.api.nvim_buf_set_lines(state.zoom_buf, 0, -1, false, { text })
+  -- The text starts one cell into the box: 0-based character box.col.
+  local row = box.row - 1
+  local line_text = vim.api.nvim_buf_get_lines(state.buf, row, row + 1, false)[1] or ''
+  local cfg = {
+    relative = 'win',
+    win = state.win,
+    bufpos = { row, util.char_to_byte(line_text, box.col) },
+    row = 0,
+    col = 0,
+    width = width,
+    height = 1,
+    border = 'none',
+    focusable = false,
+    style = 'minimal',
+    zindex = 50,
+  }
+  if state.zoom_win and vim.api.nvim_win_is_valid(state.zoom_win) then
+    vim.api.nvim_win_set_config(state.zoom_win, cfg)
+  else
+    cfg.noautocmd = true
+    state.zoom_win = vim.api.nvim_open_win(state.zoom_buf, false, cfg)
+  end
+  local colors = opts.colors and opts.colors.mode ~= 'off'
+  local hl = opts.highlights
+  vim.wo[state.zoom_win].wrap = false
+  vim.wo[state.zoom_win].winhighlight = 'NormalFloat:CursorLine'
+  vim.api.nvim_buf_clear_namespace(state.zoom_buf, zoom_ns, 0, -1)
+  local p, n = #box.full_prefix, #box.full_name
+  if p > 0 then
+    vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, 0, {
+      end_col = p, hl_group = colors and 'CallgraphLocation' or hl.loc,
+    })
+  end
+  vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, p, {
+    end_col = p + n, hl_group = colors and 'CallgraphFocus' or hl.focus,
+  })
+  if marker ~= '' then
+    vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, #text - #marker, {
+      end_col = #text, hl_group = colors and 'CallgraphSymbol' or hl.focus,
     })
   end
 end
@@ -947,6 +1013,7 @@ function M.show_help()
     '  Enter / d           jump to definition',
     '  R                   re-pick definition (multi-def)',
     '  K                   docs (LSP hover)',
+    '  D                   boxed / dense boxes',
     '  q / Esc             close tab',
     '  r                   refresh',
     '  i / o               callin / callout',
@@ -993,6 +1060,7 @@ function M.setup_keymaps()
   set(km.jump_to_def_alt, function() M.jump_to_def() end)
   set(km.reselect_def, function() M.reselect_def() end)
   set(km.hover, function() M.hover_docs() end)
+  set(km.toggle_style, function() M.toggle_style() end)
   -- Tab keys switch between callgraph tabs. These buffer-local bindings
   -- override global ones (e.g. barbar's <Tab> -> BufferNext), so pressing Tab
   -- inside the view cycles tabs instead of leaving it.

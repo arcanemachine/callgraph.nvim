@@ -55,7 +55,36 @@ end
 
 local function draw_box(grid, b, spans, collapse_marker)
   local r, c, w = b.row, b.col, b.width
-  local top, bottom = r, r + BOX_H - 1
+  local top, bottom = r, r + (b.height or BOX_H) - 1
+
+  -- Dense: one borderless row, `container.name ❯`; only the text is drawn so
+  -- the edge line from the text's end to the column edge stays visible.
+  if b.dense then
+    local col = c + 1
+    local idx = 0
+    local span_start, span_grp
+    local function flush()
+      if spans and span_start then
+        add_span(spans, r, span_start, col - 1, span_grp, (span_grp == 'func') and b.id or nil)
+      end
+    end
+    for _, ch in ipairs(vim.fn.split(b.text, '\\zs')) do
+      idx = idx + 1
+      local grp
+      if idx <= b.name_offset then grp = 'loc'
+      elseif idx <= b.name_offset + b.name_width then grp = 'func'
+      elseif ch == ' ' then grp = 'blank'
+      else grp = 'symbol' end
+      put(grid, r, col, ch)
+      if grp ~= span_grp then
+        if span_grp ~= 'blank' then flush() end
+        span_start, span_grp = col, grp
+      end
+      col = col + 1
+    end
+    if span_grp ~= 'blank' then flush() end
+    return
+  end
 
   put(grid, top, c, '╭')
   put(grid, top, c + w - 1, '╮')
@@ -204,10 +233,13 @@ function M.render(buf, layout, graph, view)
   vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
   layout.box_marks = {}
   for id, b in pairs(layout.boxes) do
-    -- Name row: grid row b.row + 2 is buffer row b.row + 1 (0-based).
-    local line_text = lines[b.row + 2] or ''
-    local byte_col = util.char_to_byte(line_text, b.col)
-    layout.box_marks[id] = vim.api.nvim_buf_set_extmark(buf, M.anchor_ns, b.row + 1, byte_col, {})
+    -- The anchor sits on the name: grid row b.row + name_row is buffer row
+    -- b.row + name_row - 1 (0-based); the name starts name_offset characters
+    -- after the first text column (0-based character b.col).
+    local name_row = b.name_row or 2
+    local line_text = lines[b.row + name_row] or ''
+    local byte_col = util.char_to_byte(line_text, b.col + (b.name_offset or 0))
+    layout.box_marks[id] = vim.api.nvim_buf_set_extmark(buf, M.anchor_ns, b.row + name_row - 1, byte_col, {})
   end
 
   -- Colors mode: color every part (borders, function names, locations, edges)
@@ -246,15 +278,16 @@ function M.render(buf, layout, graph, view)
       local pos = vim.api.nvim_buf_get_extmark_by_id(buf, M.anchor_ns, mark_id, {})
       if pos then
         local line_text = lines[pos[1] + 1] or ''
-        local name_end = util.char_to_byte(line_text, b.col + b.name_width)
+        local name_end = util.char_to_byte(line_text, b.col + (b.name_offset or 0) + b.name_width)
 
-        -- Dim the container row (container and location, inside the borders);
-        -- it sits just above the name row.
-        local row1_text = lines[pos[1]] or ''
+        -- Dim the container: boxed, its own row (with the location) just above
+        -- the name row; dense, the text before the name.
+        local row1_line = b.dense and pos[1] or pos[1] - 1
+        local row1_text = lines[row1_line + 1] or ''
         local row1_start = util.char_to_byte(row1_text, b.col)
-        local row1_end = util.char_to_byte(row1_text, b.col + b.width - 2)
+        local row1_end = b.dense and pos[2] or util.char_to_byte(row1_text, b.col + b.width - 2)
         if row1_end > row1_start then
-          vim.api.nvim_buf_set_extmark(buf, M.ns, pos[1] - 1, row1_start, {
+          vim.api.nvim_buf_set_extmark(buf, M.ns, row1_line, row1_start, {
             end_col = row1_end,
             hl_group = hl.loc,
             priority = 2,
