@@ -268,7 +268,7 @@ function M.focus_selected()
   local crow, ccol = pos[1] + 1, pos[2]
   pcall(function()
     vim.api.nvim_win_set_cursor(state.win, { crow, ccol })
-    -- Vertically center the cursor line so the 3-row box sits mid-window.
+    -- Vertically center the cursor line so the box sits mid-window.
     vim.api.nvim_win_call(state.win, function()
       vim.cmd('normal! zz')
     end)

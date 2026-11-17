@@ -10,7 +10,9 @@ local util = require('callgraph.util')
 
 local M = {}
 
-local BOX_H = 3 -- top border, text row, bottom border
+local BOX_H = 4 -- top border, container row, name row, bottom border
+-- Row offset (from the box top) of the name row, where edges attach.
+M.NAME_ROW = 2
 
 local function text_label(graph, n, show_call_site, max_loc_width)
   if not show_call_site then return nil end
@@ -47,8 +49,8 @@ local function add_run(segments, r1, c1, r2, c2, dir)
 end
 
 local function add_forward_edge(edges, sb, tb)
-  local R1 = sb.row + 1
-  local R2 = tb.row + 1
+  local R1 = sb.row + M.NAME_ROW
+  local R2 = tb.row + M.NAME_ROW
   local src_right = sb.col + sb.width - 1
   local tgt_left = tb.col
   local segments = {}
@@ -96,14 +98,15 @@ function M.layout(graph, opts, view_state)
     return d
   end
 
-  -- Per-node display text and marker positions (iterate the tree, no sort).
+  -- Per-node display text. Row 1: the container (dim) and the location label,
+  -- right-aligned. Row 2: the name's last part and the marker slot.
   local texts = {}
   for id, n in pairs(graph.nodes) do
     if n.visible then
-      local name = util.truncate_left(n.name or '?', max_name_width)
-      local loc_str = ''
-      local label = text_label(graph, n, show_call_site, max_loc_width)
-      if label then loc_str = ' ' .. label end
+      local container, short, sep = util.split_name(n.name or '?')
+      container = util.abbreviate(container, sep, max_name_width)
+      local name = util.truncate_left(short, max_name_width)
+      local loc = text_label(graph, n, show_call_site, max_loc_width) or ''
       -- A single reserved marker slot (space + one symbol): ⟳ (cycle) or ❯
       -- (expandable). The two never co-occur, so one slot keeps widths stable
       -- across expand/collapse while reserving less space.
@@ -113,9 +116,18 @@ function M.layout(graph, opts, view_state)
       elseif n.def_pending or (n.has_children and not all_children_visible(graph, n)) then
         marker = ' ' .. win.collapse_marker
       end
-
-      local text = name .. loc_str .. marker
-      texts[n.id] = { text = text, name_width = util.char_count(name) }
+      local gap = (container ~= '' and loc ~= '') and 2 or 0
+      texts[n.id] = {
+        container = container,
+        loc = loc,
+        name = name,
+        marker = marker,
+        name_width = util.char_count(name),
+        width = math.max(
+          util.char_count(container) + gap + util.char_count(loc),
+          util.char_count(name) + util.char_count(marker)
+        ),
+      }
     end
   end
 
@@ -126,8 +138,7 @@ function M.layout(graph, opts, view_state)
     if n.visible then
       local c = col_of(n)
       if c > max_col then max_col = c end
-      local tw = util.char_count(texts[id].text)
-      col_width[c] = math.max(col_width[c] or 0, tw + 2)
+      col_width[c] = math.max(col_width[c] or 0, texts[id].width + 2)
     end
   end
 
@@ -148,17 +159,24 @@ function M.layout(graph, opts, view_state)
   local function make_box(node, c, row)
     local w = col_width[c] or 0
     local t = texts[node.id]
+    -- Pad both rows to the inner width so the location and marker line up on
+    -- the right edge.
+    local inner = w - 2
+    local pad1 = inner - util.char_count(t.container) - util.char_count(t.loc)
+    local pad2 = inner - t.name_width - util.char_count(t.marker)
+    local line1 = t.container .. string.rep(' ', math.max(pad1, 0)) .. t.loc
+    local line2 = t.name .. string.rep(' ', math.max(pad2, 0)) .. t.marker
     local box = {
       id = node.id,
       row = row,
       col = col_x[c],
       width = w,
       height = BOX_H,
-      text = t.text,
-      text_width = util.char_count(t.text),
+      line1 = line1,
+      text = line2,
+      text_width = util.char_count(line2),
       name_width = t.name_width,
       -- Function-name span in 0-based buffer columns: [name_start, name_end).
-      -- Only the name is highlighted (not the trailing location label).
       name_start = col_x[c],
       name_end = col_x[c] + t.name_width,
     }

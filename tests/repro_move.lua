@@ -50,11 +50,11 @@ local function check(name, cond, detail)
   if cond then print('PASS ' .. name) else failed = failed + 1; print('FAIL ' .. name .. (detail and (' :: ' .. tostring(detail)) or '')) end
 end
 
--- Expected cursor (row = text row, col = box text start) per box after each
+-- Expected cursor (row = name row, col = box text start) per box after each
 -- move, plus the character under the cursor. The columns are taken from the
 -- SAME layout the view renders, so the check is platform-independent (the
 -- character-grid columns differ across OSes / nvim builds when glyph widths
--- are treated differently). Text rows are 2 (winbar lives on 'tabline').
+-- are treated differently). Name rows are 3 (winbar lives on 'tabline').
 local graph = graph_mod.build(main, 'callout', { max_depth = 4 }, mock_fetch).value
 local layout = layout_mod.layout(graph, config.get(), { direction = 'callout', selected_id = graph_mod.node_id(main) })
 -- Tree mode: non-root nodes have path-qualified ids, so look them up by name.
@@ -67,10 +67,10 @@ local function box_col(node)
   return layout.boxes[find_node(node.name).id].col
 end
 local expected = {
-  { 2, box_col(main), 'm' }, -- main
-  { 2, box_col(l1a), 'f' }, -- func_l1_a
-  { 2, box_col(l2a), 'f' }, -- func_l2_a
-  { 2, box_col(l2c), 'f' }, -- func_l2_c
+  { 3, box_col(main), 'm' }, -- main
+  { 3, box_col(l1a), 'f' }, -- func_l1_a
+  { 3, box_col(l2a), 'f' }, -- func_l2_a
+  { 3, box_col(l2c), 'f' }, -- func_l2_c
 }
 
 local win = vim.api.nvim_get_current_win()

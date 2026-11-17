@@ -213,6 +213,63 @@ function M.truncate(s, maxchars)
   return vim.fn.strcharpart(s, 0, maxchars - 1) .. '…'
 end
 
+-- Separators between a qualified name's parts, longest first.
+local NAME_SEPARATORS = { '::', '.', '#' }
+
+--- Split a qualified name into its container and its last part:
+--- `A.B.fun/1` -> 'A.B', 'fun/1', '.'; `ns::Cls::m` -> 'ns::Cls', 'm', '::'.
+--- A name with no separator has no container ('').
+function M.split_name(name)
+  -- Only the part before a signature or description counts: some servers name
+  -- items `process(Map.Entry<K, V>)` or `items.forEach() callback`.
+  local limit = (name:find('[%( ]') or (#name + 1)) - 1
+  local best, best_sep
+  for _, sep in ipairs(NAME_SEPARATORS) do
+    local i = 0
+    local last
+    while true do
+      local s = name:find(sep, i + 1, true)
+      -- A separator at the very start or end belongs to the name (`.method`, `foo.`).
+      if not s or s + #sep > limit then break end
+      if s > 1 then last = s end
+      i = s
+    end
+    if last and (not best or last > best) then best, best_sep = last, sep end
+  end
+  if not best then return '', name, nil end
+  -- In a run of dots the first one separates: `Kernel.../2` is `Kernel` + `../2`.
+  if best_sep == '.' then
+    while best > 2 and name:sub(best - 1, best - 1) == '.' do best = best - 1 end
+  end
+  return name:sub(1, best - 1), name:sub(best + #best_sep), best_sep
+end
+
+-- Initials of one name part: the capitals and digits of CamelCase
+-- (`ResortServiceV2` -> 'RSV2'), else the first letter of each word
+-- (`my_module` -> 'mm').
+local function initials(part)
+  local caps = part:gsub('[^%u%d]', '')
+  if #caps >= 2 then return caps end
+  local out = {}
+  for word in part:gmatch('[^_%-]+') do out[#out + 1] = vim.fn.strcharpart(word, 0, 1) end
+  local s = table.concat(out)
+  return s ~= '' and s or part
+end
+
+--- Shorten a container to `maxchars`: replace its parts with their initials
+--- from the left, keeping the last part whole, until it fits; then cut from
+--- the left.
+function M.abbreviate(container, sep, maxchars)
+  if container == '' or M.char_count(container) <= maxchars then return container end
+  local parts = vim.split(container, sep, { plain = true })
+  for i = 1, #parts - 1 do
+    parts[i] = initials(parts[i])
+    local s = table.concat(parts, sep)
+    if M.char_count(s) <= maxchars then return s end
+  end
+  return M.truncate_left(table.concat(parts, sep), maxchars)
+end
+
 --- Like `truncate`, but keeps the end: the distinctive part of a qualified
 --- name (`Module.Sub.function/1`) is its last segments.
 function M.truncate_left(s, maxchars)

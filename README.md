@@ -51,6 +51,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Depth limit**: `max_depth` defaults to 4 (at most 4 edges from the root). Boundary nodes collapse to a `▸` marker; Enter / double-click expands, `+` / `-` adjust depth.
 - **Cycles**: when a back edge is detected the node is not expanded again; a highlighted **⟳** terminal is shown next to the name and no back edge is drawn.
 - **Crossing-free edges**: rows are assigned so each subtree occupies a contiguous band; parent→child edges never overlap other edges.
+- **Two-row boxes**: a qualified name (`Mod.Sub.fun/1`, `ns::Cls::m`, `Cls#m`) splits at its last separator: the container and `file:line` sit on a dim first row, the last part on the second. A container wider than `max_name_width` shortens its parts to initials from the left (`ShopServiceWeb` → `SSW`), keeping the last part.
 - **Location labels**: each box shows `file:line` — the definition for LSP/auto sources, the call site for cscope (`show_call_site` can be turned off).
 - **Long-name truncation**: over-wide function names keep their end (`…Scheduler.start_job/1`), where a qualified name differs; hovering shows the full path in the message area.
 - **Auto-scroll**: moving the selection scrolls the canvas (horizontal/vertical) so the focused box stays visible.
@@ -142,7 +143,7 @@ require('callgraph').setup({
     fixed_height = 20,       -- bottom-layout fixed rows
     row_gap = 2,             -- vertical gap between stacked boxes in a column
     col_gap = 5,             -- horizontal gap between columns
-    max_name_width = 26,     -- function name truncation
+    max_name_width = 26,     -- name and container truncation
     max_loc_width = 22,      -- location label truncation
     arrows = { right='', down='', up='', left='' }, -- Nerd Font arrows
     collapse_marker = '❯',  -- expandable marker: '❯' thick | '▶' large | '▸' small | '▷' outline

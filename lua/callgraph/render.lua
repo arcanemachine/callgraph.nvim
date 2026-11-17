@@ -14,8 +14,8 @@ M.anchor_ns = vim.api.nvim_create_namespace('callgraph_anchors')
 
 local util = require('callgraph.util')
 
--- Box height in rows (top border, text, bottom border).
-local BOX_H = 3
+-- Box height in rows (top border, container row, name row, bottom border).
+local BOX_H = 4
 
 -- Junction glyphs by connection mask (1=N, 2=S, 4=W, 8=E).
 local GLYPH = {
@@ -65,59 +65,64 @@ local function draw_box(grid, b, spans, collapse_marker)
     put(grid, top, i, '─')
     put(grid, bottom, i, '─')
   end
-  put(grid, r + 1, c, '│')
-  put(grid, r + 1, c + w - 1, '│')
-  if spans then
-    add_span(spans, top, c, c + w - 1, 'border')
-    add_span(spans, bottom, c, c + w - 1, 'border')
-    add_span(spans, r + 1, c, c, 'border')
-    add_span(spans, r + 1, c + w - 1, c + w - 1, 'border')
+  for rr = r + 1, r + 2 do
+    put(grid, rr, c, '│')
+    put(grid, rr, c + w - 1, '│')
+    if spans then
+      add_span(spans, rr, c, c, 'border')
+      add_span(spans, rr, c + w - 1, c + w - 1, 'border')
+    end
   end
 
-  -- Box text (text row): name, inline markers (⟳ / ▸), then the location label.
-  -- Each part gets its own span so markers can follow the keyword color.
-  local text = b.text
-  local col = c + 1
-  local last = c + w - 2
-  local i, n = 1, #text
-  local char_index = 0
-  local span_start, span_grp
-  local function flush_span()
-    if spans and span_start and span_grp then
-      add_span(spans, r + 1, span_start, col - 1, span_grp, (span_grp == 'func') and b.id or nil)
+  -- Write `text` into row `rr`, one span per run of the same group;
+  -- `group_of(char_index, char)` names each character's group.
+  local function draw_text(rr, text, group_of)
+    local col = c + 1
+    local last = c + w - 2
+    local i, n = 1, #text
+    local char_index = 0
+    local span_start, span_grp
+    local function flush_span()
+      if spans and span_start and span_grp and span_grp ~= 'blank' then
+        add_span(spans, rr, span_start, col - 1, span_grp, (span_grp == 'func') and b.id or nil)
+      end
     end
-  end
-  while i <= n do
-    local byte = string.byte(text, i)
-    local char
-    if byte < 0x80 then
-      char = string.sub(text, i, i); i = i + 1
-    elseif byte < 0xE0 then
-      char = string.sub(text, i, i + 1); i = i + 2
-    elseif byte < 0xF0 then
-      char = string.sub(text, i, i + 2); i = i + 3
-    else
-      char = string.sub(text, i, i + 3); i = i + 4
-    end
-    if col <= last then
-      grid[r + 1][col] = char
-      char_index = char_index + 1
-      local grp
-      if char_index <= b.name_width then
-        grp = 'func'
-      elseif char == '⟳' or (collapse_marker and char == collapse_marker) then
-        grp = 'symbol'
+    while i <= n do
+      local byte = string.byte(text, i)
+      local char
+      if byte < 0x80 then
+        char = string.sub(text, i, i); i = i + 1
+      elseif byte < 0xE0 then
+        char = string.sub(text, i, i + 1); i = i + 2
+      elseif byte < 0xF0 then
+        char = string.sub(text, i, i + 2); i = i + 3
       else
-        grp = 'loc'
+        char = string.sub(text, i, i + 3); i = i + 4
       end
-      if spans and grp ~= span_grp then
-        flush_span()
-        span_start, span_grp = col, grp
+      if col <= last then
+        grid[rr][col] = char
+        char_index = char_index + 1
+        local grp = group_of(char_index, char)
+        if spans and grp ~= span_grp then
+          flush_span()
+          span_start, span_grp = col, grp
+        end
+        col = col + 1
       end
-      col = col + 1
     end
+    flush_span()
   end
-  flush_span()
+
+  -- Container row: container and location label, both dim.
+  draw_text(r + 1, b.line1 or '', function(_, char)
+    return char == ' ' and 'blank' or 'loc'
+  end)
+  -- Name row: the name, then the marker (⟳ / ❯).
+  draw_text(r + 2, b.text, function(idx, char)
+    if idx <= b.name_width then return 'func' end
+    if char == '⟳' or (collapse_marker and char == collapse_marker) then return 'symbol' end
+    return 'blank'
+  end)
 end
 
 --- Render `layout` into `buf`.
@@ -199,9 +204,10 @@ function M.render(buf, layout, graph, view)
   vim.api.nvim_buf_clear_namespace(buf, M.ns, 0, -1)
   layout.box_marks = {}
   for id, b in pairs(layout.boxes) do
-    local line_text = lines[b.row + 1] or ''
+    -- Name row: grid row b.row + 2 is buffer row b.row + 1 (0-based).
+    local line_text = lines[b.row + 2] or ''
     local byte_col = util.char_to_byte(line_text, b.col)
-    layout.box_marks[id] = vim.api.nvim_buf_set_extmark(buf, M.anchor_ns, b.row, byte_col, {})
+    layout.box_marks[id] = vim.api.nvim_buf_set_extmark(buf, M.anchor_ns, b.row + 1, byte_col, {})
   end
 
   -- Colors mode: color every part (borders, function names, locations, edges)
@@ -241,12 +247,15 @@ function M.render(buf, layout, graph, view)
       if pos then
         local line_text = lines[pos[1] + 1] or ''
         local name_end = util.char_to_byte(line_text, b.col + b.name_width)
-        local loc_end = util.char_to_byte(line_text, b.col + b.width - 2)
 
-        -- Dim the location label (after name, before right │).
-        if loc_end > name_end then
-          vim.api.nvim_buf_set_extmark(buf, M.ns, pos[1], name_end, {
-            end_col = loc_end,
+        -- Dim the container row (container and location, inside the borders);
+        -- it sits just above the name row.
+        local row1_text = lines[pos[1]] or ''
+        local row1_start = util.char_to_byte(row1_text, b.col)
+        local row1_end = util.char_to_byte(row1_text, b.col + b.width - 2)
+        if row1_end > row1_start then
+          vim.api.nvim_buf_set_extmark(buf, M.ns, pos[1] - 1, row1_start, {
+            end_col = row1_end,
             hl_group = hl.loc,
             priority = 2,
           })

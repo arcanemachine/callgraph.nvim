@@ -274,12 +274,16 @@ render_mod.render(buf, lay, g, { selected_id = nid(main), highlight = true, high
 local em_on = vim.api.nvim_buf_get_extmarks(buf, render_mod.ns, 0, -1, { details = true })
 check('highlight on -> exactly one extmark', #em_on == 1)
 local box_main = lay.boxes[nid(main)]
+-- The focus mark is the one in the focus group (the dim marks sort before it).
 local e0 = em_on[1]
+for _, m in ipairs(em_on) do
+  if m[4].hl_group == hl.focus then e0 = m end
+end
 -- extmark cols are BYTE offsets; verify against char->byte conversion.
-local tline = table.concat(vim.api.nvim_buf_get_lines(buf, box_main.row, box_main.row + 1, false), '\n')
+local tline = table.concat(vim.api.nvim_buf_get_lines(buf, box_main.row + 1, box_main.row + 2, false), "\n")
 local c2b = util.char_to_byte
 check('focus covers the name only',
-  e0[2] == box_main.row and e0[3] == c2b(tline, box_main.col)
+  e0[2] == box_main.row + 1 and e0[3] == c2b(tline, box_main.col)
   and (e0[4].end_col or 0) == c2b(tline, box_main.col + box_main.name_width))
 check('name width is the function name length', box_main.name_width == vim.fn.strchars('main'))
 check('focus group is the configured one', e0[4].hl_group == hl.focus)
