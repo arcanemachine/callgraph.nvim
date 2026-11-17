@@ -161,6 +161,8 @@ function M.open_float()
   wo.number = false
   wo.relativenumber = false
   wo.signcolumn = 'no'
+  -- The canvas pads with spaces; 'list' would draw them (e.g. trail:-).
+  wo.list = false
   M.setup_keymaps()
 end
 
