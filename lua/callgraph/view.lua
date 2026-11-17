@@ -750,9 +750,11 @@ function M.hover_echo()
   if id and tab and tab.graph then
     local node = tab.graph.nodes[id]
     if node then
-      local path = vim.uri_to_fname(node.uri or '')
+      local path = vim.fn.fnamemodify(vim.uri_to_fname(node.uri or ''), ':~:.')
       local line = (node.range and node.range.start and node.range.start.line or 0) + 1
-      vim.api.nvim_echo({ { node.name .. '  ' .. path .. ':' .. tostring(line), 'Normal' } }, true, {})
+      -- Fit the message line: a longer message wraps and stops at "Press ENTER".
+      local text = util.truncate(node.name .. '  ' .. path .. ':' .. tostring(line), vim.v.echospace)
+      vim.api.nvim_echo({ { text, 'Normal' } }, false, {})
     end
   end
 end
