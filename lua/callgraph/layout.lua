@@ -86,6 +86,7 @@ end
 function M.layout(graph, opts, view_state)
   local win = opts.window
   local max_name_width = win.max_name_width
+  local max_func_width = win.max_func_width or max_name_width
   local max_loc_width = win.max_loc_width
   local show_call_site = opts.show_call_site
   local row_gap = win.row_gap
@@ -105,7 +106,7 @@ function M.layout(graph, opts, view_state)
     if n.visible then
       local container, short, sep = util.split_name(n.name or '?')
       container = util.abbreviate(container, sep, max_name_width)
-      local name = util.truncate_left(short, max_name_width)
+      local name = util.truncate_left(short, max_func_width)
       local loc = text_label(graph, n, show_call_site, max_loc_width) or ''
       -- A single reserved marker slot (space + one symbol): ⟳ (cycle) or ❯
       -- (expandable). The two never co-occur, so one slot keeps widths stable

@@ -54,6 +54,8 @@ M.defaults = {
     col_gap = 5,
     -- Box text limits (in characters) before truncation kicks in.
     max_name_width = 26,
+    -- Limit for the name row (the last part of a qualified name); nil = max_name_width.
+    max_func_width = nil,
     max_loc_width = 22,
     -- Arrowhead glyphs (Nerd Font). Default: Font Awesome solid arrows.
     -- Alternatives:

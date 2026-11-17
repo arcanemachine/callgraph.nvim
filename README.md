@@ -144,6 +144,7 @@ require('callgraph').setup({
     row_gap = 2,             -- vertical gap between stacked boxes in a column
     col_gap = 5,             -- horizontal gap between columns
     max_name_width = 26,     -- name and container truncation
+    max_func_width = nil,    -- name-row truncation (nil = max_name_width)
     max_loc_width = 22,      -- location label truncation
     arrows = { right='', down='', up='', left='' }, -- Nerd Font arrows
     collapse_marker = '❯',  -- expandable marker: '❯' thick | '▶' large | '▸' small | '▷' outline
