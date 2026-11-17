@@ -30,7 +30,7 @@ local function text_label(graph, n, show_call_site, max_loc_width)
     loc = vim.fn.fnamemodify(path, ':t') .. ':' .. tostring((n.range.start.line or 0) + 1)
   end
   if not loc then return nil end
-  return util.truncate(loc, max_loc_width)
+  return util.truncate_left(loc, max_loc_width)
 end
 
 local function all_children_visible(graph, n)
