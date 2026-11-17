@@ -16,6 +16,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 |---|---|
 | `:Callout` | Build the graph rooted at the function under the cursor — **what it calls** |
 | `:Callin` | Build the graph rooted at the function under the cursor — **who calls it** |
+| `:Callgraph` | Both at once: callers fan out left of the function, callees right; each side expands in its own direction |
 | `:CallgraphLog` | Open the debug log file |
 | `:CallgraphDebug on\|off` | Toggle debug logging at runtime |
 
@@ -110,7 +111,7 @@ LSP for the file type.
 -- lazy.nvim
 {
   'mengq627/callgraph.nvim',
-  cmd = { 'Callout', 'Callin' },
+  cmd = { 'Callout', 'Callin', 'Callgraph' },
   keys = {
     { '<leader>co', '<cmd>Callout<CR>', desc = 'Call graph: callees' },
     { '<leader>ci', '<cmd>Callin<CR>',  desc = 'Call graph: callers' },
@@ -124,6 +125,7 @@ LSP for the file type.
 ```lua
 require('callgraph').setup({
   max_depth = 4,          -- maximum edges expanded from the root by default
+  both_depth = 2,         -- levels per side in :Callgraph
   show_call_site = true,  -- show  file:line  inside each box
   sources = { 'lsp', 'auto' }, -- call-graph sources in priority order; the
                               -- first one that returns results wins. Available:
@@ -207,7 +209,7 @@ require('callgraph').setup({
 ## Architecture
 
 ```
-plugin/callgraph.lua  lazy entry point: registers :Callout / :Callin / :CallgraphLog / :CallgraphDebug
+plugin/callgraph.lua  lazy entry point: registers :Callout / :Callin / :Callgraph / :CallgraphLog / :CallgraphDebug
 lua/callgraph/
   init.lua      setup(), public API, LspAttach background cache
   config.lua    defaults + merge + highlight group definitions

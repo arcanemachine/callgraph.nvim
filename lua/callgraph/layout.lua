@@ -96,8 +96,14 @@ function M.layout(graph, opts, view_state)
   local col_gap = win.col_gap
 
   local max_depth = graph.max_visible_depth
+  -- In a 'both' graph callers fan out left of the root, callees right.
+  local max_in = graph.max_visible_in or 0
   local function col_of(node)
     local d = node.depth
+    if graph.direction == 'both' then
+      if node.side == 'callin' then return max_in - d end
+      return max_in + d
+    end
     if graph.direction == 'callin' then return max_depth - d end
     return d
   end
@@ -199,12 +205,42 @@ function M.layout(graph, opts, view_state)
     if row + BOX_H - 1 > max_bottom then max_bottom = row + BOX_H - 1 end
     return box
   end
-  local function place(node)
-    local children = {}
+  local function visible_children(node, side)
+    local out = {}
     for _, cid in ipairs(node.children) do
       local ch = graph.nodes[cid]
-      if ch and ch.visible then children[#children + 1] = ch end
+      if ch and ch.visible and (not side or ch.side == side) then out[#out + 1] = ch end
     end
+    return out
+  end
+  local place
+  -- A 'both' root: each side is its own band from the same top, so callers
+  -- and callees line up beside the root.
+  local function place_both_root(node)
+    local start = y_cursor
+    local top, bottom
+    for _, side in ipairs({ 'callin', 'callout' }) do
+      y_cursor = start
+      local side_top
+      for _, ch in ipairs(visible_children(node, side)) do
+        local t, b = place(ch)
+        side_top = side_top or t
+        bottom = math.max(bottom or b, b)
+      end
+      if side_top then top = math.min(top or side_top, side_top) end
+    end
+    if not top then
+      top, bottom = start, start
+      y_cursor = start + BOX_H + row_gap
+    else
+      y_cursor = math.max(y_cursor, bottom + BOX_H + row_gap)
+    end
+    make_box(node, col_of(node), top)
+    return top, bottom
+  end
+  place = function(node)
+    if graph.direction == 'both' and node == graph.root then return place_both_root(node) end
+    local children = visible_children(node)
     local top, bottom
     if #children == 0 then
       top, bottom = y_cursor, y_cursor

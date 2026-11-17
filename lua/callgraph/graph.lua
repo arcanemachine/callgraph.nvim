@@ -59,6 +59,7 @@ local function new_node(graph, item, depth, parent_id)
     depth = depth,
     order = graph.next_order,
     children = {}, -- render-direction children (callout: callees; callin: callers)
+    side = nil, -- 'callin' | 'callout' in a 'both' graph (nil for the root)
     parents = {}, -- single parent in tree mode
     call_site = nil, -- { uri, line } of the single arriving edge
     children_fetched = false,
@@ -100,8 +101,12 @@ end
 --- Create `node`'s children from fetched `calls` (shared by build_sync,
 --- expand_sync and rebuild_node). Handles cycle back-edges; returns the newly
 --- created ordinary children so callers can queue / hide them.
-local function add_children(graph, node, calls)
+local function add_children(graph, node, calls, side)
   local new_nodes = {}
+  side = side or node.side
+  -- In a 'both' graph a function can be both a caller and a callee of the
+  -- root: the side keeps the root's two children apart.
+  local prefix = node.id .. ((node == graph.root and side) and ('\0' .. side) or '')
   local seen = {}
   for _, c in ipairs(calls) do
     local sym_id = M.node_id(c.item)
@@ -110,7 +115,7 @@ local function add_children(graph, node, calls)
       node.has_children = true
       if is_ancestor(graph, node, sym_id) then
         -- Back-edge: close the cycle as a terminal leaf under `node`.
-        local cyc_key = node.id .. '\0#cycle\0' .. sym_id
+        local cyc_key = prefix .. '\0#cycle\0' .. sym_id
         if not graph.nodes[cyc_key] then
           local cyc = new_node(graph, c.item, node.depth + 1, node.id)
           cyc.id = cyc_key
@@ -119,16 +124,18 @@ local function add_children(graph, node, calls)
           cyc.children_fetched = true
           cyc.has_children = false
           cyc.source = c.source -- which provider produced this call
+          cyc.side = side
           graph.nodes[cyc_key] = cyc
           add_edge(graph, node, cyc, c.call_site)
         end
       else
         -- Tree mode: no dedup — each call path gets its own node.
-        local cid = node.id .. '\0' .. sym_id
+        local cid = prefix .. '\0' .. sym_id
         if not graph.nodes[cid] then
           local n = new_node(graph, c.item, node.depth + 1, node.id)
           n.id = cid
           n.source = c.source -- which provider produced this call
+          n.side = side
           graph.nodes[cid] = n
           add_edge(graph, node, n, c.call_site)
           new_nodes[#new_nodes + 1] = n
@@ -140,11 +147,30 @@ local function add_children(graph, node, calls)
 end
 
 local function recompute_max_visible(graph)
-  local md = -1
+  local md, md_in, md_out = -1, 0, 0
   for _, n in pairs(graph.nodes) do
-    if n.visible and n.depth > md then md = n.depth end
+    if n.visible then
+      if n.depth > md then md = n.depth end
+      if n.side == 'callin' and n.depth > md_in then md_in = n.depth end
+      if n.side == 'callout' and n.depth > md_out then md_out = n.depth end
+    end
   end
   graph.max_visible_depth = math.max(md, 0)
+  -- Per side, for a 'both' graph's layout.
+  graph.max_visible_in, graph.max_visible_out = md_in, md_out
+end
+
+--- Fetch `node`'s calls and add them as children. In a 'both' graph the root
+--- fetches both directions; every other node follows its side.
+local function fetch_children(graph, node, fetch)
+  if graph.direction == 'both' and node == graph.root then
+    local added = add_children(graph, node, util.await(fetch(node, 'callin')), 'callin')
+    for _, n in ipairs(add_children(graph, node, util.await(fetch(node, 'callout')), 'callout')) do
+      added[#added + 1] = n
+    end
+    return added
+  end
+  return add_children(graph, node, util.await(fetch(node, node.side or graph.direction)))
 end
 
 -- ---------------------------------------------------------------------------
@@ -186,8 +212,7 @@ function M.build_sync(root, direction, opts, fetch)
     head = head + 1
     if not node.is_cycle and node.depth <= max_depth then
       node.children_fetched = true
-      local calls = util.await(fetch(node, direction))
-      local added = add_children(graph, node, calls)
+      local added = fetch_children(graph, node, fetch)
       for _, n in ipairs(added) do
         if n.depth <= max_depth then queue[#queue + 1] = n end
       end
@@ -236,8 +261,7 @@ function M.expand_sync(graph, node, fetch)
     local c = graph.nodes[cid]
     if c and not c.is_cycle and not c.children_fetched then
       c.children_fetched = true
-      local calls = util.await(fetch(c, graph.direction))
-      local added = add_children(graph, c, calls)
+      local added = fetch_children(graph, c, fetch)
       for _, n in ipairs(added) do n.visible = false end -- one level per expand
     end
   end
@@ -284,8 +308,7 @@ function M.rebuild_node(graph, node, fetch)
     head = head + 1
     if not n.is_cycle and n.depth <= graph.max_depth then
       n.children_fetched = true
-      local calls = util.await(fetch(n, graph.direction))
-      local added = add_children(graph, n, calls)
+      local added = fetch_children(graph, n, fetch)
       for _, c in ipairs(added) do
         if c.depth <= graph.max_depth then queue[#queue + 1] = c end
       end

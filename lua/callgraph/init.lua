@@ -21,10 +21,11 @@ function M.setup(opts)
   ensure_highlights()
 end
 
---- Open the callgraph view. `direction` is 'callout' (default) or 'callin'.
+--- Open the callgraph view. `direction` is 'callout' (default), 'callin', or
+--- 'both' (callers left of the function, callees right).
 function M.open(direction)
   ensure_highlights()
-  view.open(direction == 'callin' and 'callin' or 'callout')
+  view.open((direction == 'callin' or direction == 'both') and direction or 'callout')
 end
 
 -- Background documentSymbol cache so opening the view stays fast. Registered

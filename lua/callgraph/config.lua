@@ -6,6 +6,8 @@ M.defaults = {
   -- Maximum depth (number of edges) from the root to fetch/render. It is the
   -- default viewport, not a hard cap: expanding a node reveals deeper levels.
   max_depth = 4,
+  -- Levels per side in the combined view (:Callgraph), which is twice as wide.
+  both_depth = 2,
   -- Show the call-site location (file:line) inside each box.
   show_call_site = true,
   -- Highlight toggle. When true, the selected box's function name is colored

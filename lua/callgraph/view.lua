@@ -43,9 +43,10 @@ function M.open(direction)
   end)
 end
 
---- Tab identity: arrow before the name = callin, after = callout.
+--- Tab identity: arrow before the name = callin, after = callout, both = both.
 local function tab_key(name, direction, arrows)
   if direction == 'callin' then return arrows.right .. name end
+  if direction == 'both' then return arrows.right .. name .. arrows.right end
   return name .. arrows.right
 end
 
@@ -139,7 +140,7 @@ function M.open_with_root(root, direction, encoding, client)
     key = key,
     root = root,
     direction = direction,
-    view_depth = opts.max_depth,
+    view_depth = direction == 'both' and opts.both_depth or opts.max_depth,
     graph = nil,
     selected_id = nil,
     last_layout = nil,
