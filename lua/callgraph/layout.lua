@@ -100,7 +100,7 @@ function M.layout(graph, opts, view_state)
   local texts = {}
   for id, n in pairs(graph.nodes) do
     if n.visible then
-      local name = util.truncate(n.name or '?', max_name_width)
+      local name = util.truncate_left(n.name or '?', max_name_width)
       local loc_str = ''
       local label = text_label(graph, n, show_call_site, max_loc_width)
       if label then loc_str = ' ' .. label end

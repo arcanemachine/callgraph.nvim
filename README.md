@@ -52,7 +52,7 @@ Mouse: single click selects a box, **double-click** expands/collapses, scroll wh
 - **Cycles**: when a back edge is detected the node is not expanded again; a highlighted **⟳** terminal is shown next to the name and no back edge is drawn.
 - **Crossing-free edges**: rows are assigned so each subtree occupies a contiguous band; parent→child edges never overlap other edges.
 - **Location labels**: each box shows `file:line` — the definition for LSP/auto sources, the call site for cscope (`show_call_site` can be turned off).
-- **Long-name truncation**: over-wide function names are truncated to `…`; hovering shows the full path in the message area.
+- **Long-name truncation**: over-wide function names keep their end (`…Scheduler.start_job/1`), where a qualified name differs; hovering shows the full path in the message area.
 - **Auto-scroll**: moving the selection scrolls the canvas (horizontal/vertical) so the focused box stays visible.
 - **Dynamic window size**: `<` / `>` grow/shrink the view window (width for `right`, height for `bottom`); the size is kept for later renders and re-opens.
 - **Multiple tabs**: several function+direction graphs can be open at once in one view, shown in the winbar.

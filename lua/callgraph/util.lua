@@ -213,4 +213,14 @@ function M.truncate(s, maxchars)
   return vim.fn.strcharpart(s, 0, maxchars - 1) .. '…'
 end
 
+--- Like `truncate`, but keeps the end: the distinctive part of a qualified
+--- name (`Module.Sub.function/1`) is its last segments.
+function M.truncate_left(s, maxchars)
+  if not s then return '' end
+  local n = vim.fn.strchars(s)
+  if n <= maxchars then return s end
+  if maxchars <= 1 then return '…' end
+  return '…' .. vim.fn.strcharpart(s, n - maxchars + 1)
+end
+
 return M
