@@ -97,7 +97,7 @@ LSP for the file type.
 
 ## Requirements
 
-- Neovim **≥ 0.10**
+- Neovim **≥ 0.11**
 - A language server. For C use **clangd** (≥ 20 for full callout/callin support)
 - For cross-file / large projects, make sure a `compile_commands.json` exists and background indexing is ready
 

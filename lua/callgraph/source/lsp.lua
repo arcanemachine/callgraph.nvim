@@ -28,7 +28,7 @@ local function standard_fetch(client, encoding, node, direction)
   -- Only prepareCallHierarchy uses the textDocument/ prefix; the incoming /
   -- outgoing calls are callHierarchy/* methods in the LSP spec.
   local method = direction == 'callout' and 'callHierarchy/outgoingCalls' or 'callHierarchy/incomingCalls'
-  client.request(method, { item = item }, function(err, result)
+  client:request(method, { item = item }, function(err, result)
     if err then
       -- e.g. clangd < 20 has no outgoingCalls (-32601): resolve empty so the
       -- source manager falls through to the next configured source.

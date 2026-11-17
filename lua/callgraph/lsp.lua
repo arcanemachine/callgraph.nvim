@@ -23,7 +23,7 @@ local symbol_cache = {}
 local function find_client(bufnr, method)
   local clients = vim.lsp.get_clients({ bufnr = bufnr })
   for _, c in ipairs(clients) do
-    if c.supports_method and c.supports_method(method, bufnr) then
+    if c:supports_method(method, bufnr) then
       return c
     end
   end
@@ -36,7 +36,7 @@ function M.ensure_document_symbol(bufnr)
   local client = find_client(bufnr, 'textDocument/documentSymbol')
   if not client then return end
   local params = { textDocument = { uri = vim.uri_from_bufnr(bufnr) } }
-  client.request('textDocument/documentSymbol', params, function(err, result)
+  client:request('textDocument/documentSymbol', params, function(err, result)
     if err or not result then return end
     symbol_cache[bufnr] = { tick = vim.b[bufnr].changedtick or 0, tree = result }
   end, bufnr)
@@ -60,7 +60,7 @@ function M.get_symbol_tree(bufnr, encoding)
   local client = find_client(bufnr, 'textDocument/documentSymbol')
   if not client then return nil end
   local d = util.Deferred.new()
-  client.request('textDocument/documentSymbol', { textDocument = { uri = vim.uri_from_bufnr(bufnr) } }, function(err, result)
+  client:request('textDocument/documentSymbol', { textDocument = { uri = vim.uri_from_bufnr(bufnr) } }, function(err, result)
     if err or not result then d:resolve(nil) else d:resolve(result) end
   end, bufnr)
   local tree = util.await(d)
@@ -131,7 +131,7 @@ function M.resolve_root(bufnr)
   local params = vim.lsp.util.make_position_params(win, encoding)
 
   local d = util.Deferred.new()
-  client.request('textDocument/prepareCallHierarchy', params, function(err, result)
+  client:request('textDocument/prepareCallHierarchy', params, function(err, result)
     if err then
       d:reject(err)
     else

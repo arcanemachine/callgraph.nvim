@@ -21,7 +21,7 @@ local M = {}
 
 local function prepare_at(client, encoding, uri, pos, bufnr)
   local d = util.Deferred.new()
-  client.request(
+  client:request(
     'textDocument/prepareCallHierarchy',
     { textDocument = { uri = uri }, position = pos },
     function(err, result)
@@ -91,7 +91,7 @@ local function callin_fetch(node, client, encoding, enclosing_fn)
   local sel = node.selectionRange
   if not uri or not sel then return {} end
   local d = util.Deferred.new()
-  client.request(
+  client:request(
     'textDocument/references',
     { textDocument = { uri = uri }, position = sel.start, context = { includeDeclaration = false } },
     function(err, result)

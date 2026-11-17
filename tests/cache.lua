@@ -24,7 +24,7 @@ local function item(name, line)
 end
 
 local req = 0
-local client = { request = function(method, params, cb)
+local client = { request = function(_, method, params, cb)
   req = req + 1
   local out = {}
   local name = params.item.name

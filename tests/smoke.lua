@@ -199,7 +199,7 @@ vim.api.nvim_buf_set_name(fb_buf, '/tmp/fb_src.c')
 vim.api.nvim_buf_set_lines(fb_buf, 0, -1, false, fb_lines)
 local add_item2 = item('add', 2)
 local fake_client = {
-  request = function(method, params, cb, bufnr)
+  request = function(_, method, params, cb, bufnr)
     if method == 'textDocument/prepareCallHierarchy' then
       cb(nil, add_item2) -- any call token resolves to `add`
     else
@@ -223,7 +223,7 @@ local lsp_mod = require('callgraph.lsp')
 local source_mod = require('callgraph.source')
 -- standard client: incomingCalls returns 2 callers, references returns nothing
 local std_client = {
-  request = function(method, params, cb, bufnr)
+  request = function(_, method, params, cb, bufnr)
     if method == 'callHierarchy/incomingCalls' then
       cb(nil, { { from = item('main', 27), fromRanges = { { start = { line = 28, character = 0 }, ['end'] = { line = 28, character = 1 } } } } })
     else
