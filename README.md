@@ -33,7 +33,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 
 | Key | Action |
 |---|---|
-| `h` `j` `k` `l` / arrows | move the selection (back the way it came returns to the box it came from; otherwise aligned column/row first, spatial nearest otherwise) |
+| `h` `j` `k` `l` / arrows | move the selection: across columns (rows when top-to-bottom) to the nearest one, preferring the function's caller or callee, then the box level with it; within a column (row when top-to-bottom) it stops at the end. Back the way it came returns to where it came from, along a call edge or to undo the last move |
 | `<Space>` | expand / collapse the focused box |
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |

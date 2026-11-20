@@ -1,5 +1,5 @@
 -- Moving back the way the selection came returns to the box it came from,
--- not to the nearest one; flipping the orientation forgets the moves.
+-- not to the nearest one; a click, a rebuild or a flip forgets the moves.
 -- Run: nvim --headless -u NONE -l tests/move_memory.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)
@@ -62,15 +62,16 @@ for _, style in ipairs({ 'boxed', 'dense' }) do
   local path = walk({ 'down', 'down', 'left', 'right', 'right', 'left', 'left' })
   check(style .. ': right, right, left, left retraces the path', path == 'p2 p3 q p3 x p3 q', path)
 
-  -- Up/down remembered too: down from x leaves its column for p2; up from
-  -- there returns to x, not to p1 above it.
-  path = walk({ 'right', 'right', 'down', 'up' })
-  check(style .. ': down then up returns', path == 'p3 x p2 x', path)
+  -- A parent remembers the child it was left from: right to x, then left
+  -- returns to p3, not to p1 level with x.
+  path = walk({ 'right', 'right', 'left' })
+  check(style .. ': a parent returns to the child it was left from', path == 'p3 x p3', path)
+  walk({ 'right' })
 
   -- The selection jumping some other way forgets the moves: a flip there
   -- and back, a rebuild (r, + / -), a click.
   local function forgets(what, jump)
-    walk({ 'left', 'down', 'down', 'right' }) -- x remembers p3 on its left
+    walk({ 'left', 'down', 'right' }) -- x remembers a child below p1
     jump()
     check(style .. ': ' .. what .. ' forgets the moves', walk({ 'left' }) == 'p1', word())
     walk({ 'right' })

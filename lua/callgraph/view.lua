@@ -198,7 +198,7 @@ function M.rebuild()
   d:next(function(graph)
     tab.graph = graph
     tab.selected_id = graph.root.id
-    tab.came_from = nil -- the selection jumped: no way back to remember
+    tab.came_from, tab.last_move = nil, nil -- the selection jumped: no way back to remember
     M.render_view()
   end, function(err)
     vim.notify('Callgraph: graph build failed: ' .. tostring(err), vim.log.levels.ERROR)
@@ -361,64 +361,77 @@ local function box_at(row, col)
   return nil
 end
 
+--- Move the selection. The graph is drawn in levels: columns left to right,
+--- or rows top to bottom when vertical. A move along that axis crosses to the
+--- nearest level with a box, preferring the selection's parent or child, then
+--- a box level with it, then the nearest; the other two directions move within
+--- the level and stop at its end. Moving back the way the selection came
+--- returns to the box it came from, along a call edge or undoing the last move.
 function M.move(dir)
   local tab = active_tab()
-  if not tab or not tab.last_layout then return end
-  local focus = tab.last_layout.boxes[tab.selected_id]
-  if not focus then return end
-  local fc = focus.col + focus.width / 2
-  local fr = focus.row + 1
-  local dirs = { left = { -1, 0 }, right = { 1, 0 }, up = { 0, -1 }, down = { 0, 1 } }
-  local d = dirs[dir]
-  if not d then return end
-  local dx, dy = d[1], d[2]
-  local is_vertical = dy ~= 0
-  -- A candidate "aligned" with the focus along the movement axis: for j/k the
-  -- same column (overlapping col range), for h/l the same row (overlapping row
-  -- range). Prefer aligned targets so vertical movement lands on a sibling
-  -- below (b -> c) instead of a child one column over but geometrically closer
-  -- (b -> f); fall back to the nearest neighbor when nothing is aligned.
-  local function aligned(b)
-    if is_vertical then
-      return b.col < focus.col + focus.width and focus.col < b.col + b.width
-    end
-    return b.row < focus.row + focus.height and focus.row < b.row + b.height
+  if not tab or not tab.last_layout or not tab.graph then return end
+  local boxes, nodes = tab.last_layout.boxes, tab.graph.nodes
+  local sel = tab.selected_id
+  local focus = boxes[sel]
+  local sign = ({ left = -1, right = 1, up = -1, down = 1 })[dir]
+  if not focus or not sign then return end
+  local vertical = tab.last_layout.orientation == 'vertical'
+  local across = (dir == 'left' or dir == 'right') ~= vertical
+  local function level(b) return vertical and b.row or b.col end
+  -- The cross axis: rows in horizontal, columns in vertical.
+  local function lo(b) return vertical and b.col or b.row end
+  local function hi(b) return vertical and (b.col + b.width - 1) or (b.row + b.height - 1) end
+  local function center(b) return (lo(b) + hi(b)) / 2 end
+  local function in_dir(b)
+    if across then return sign * (level(b) - level(focus)) > 0 end
+    return level(b) == level(focus) and sign * (lo(b) - lo(focus)) > 0
   end
-  local function offset(b)
-    return b.col + b.width / 2 - fc, b.row + 1 - fr
+  local function connected(a, b)
+    return (nodes[a] and nodes[a].parents[1] == b) or (nodes[b] and nodes[b].parents[1] == a)
   end
-  local function in_half(dc, dr)
-    return (dx < 0 and dc < -0.1) or (dx > 0 and dc > 0.1) or (dy < 0 and dr < -0.1) or (dy > 0 and dr > 0.1)
-  end
-  -- Moving back the way the selection came returns to the box it came from,
-  -- not to whichever box is nearest.
+
   tab.came_from = tab.came_from or {}
-  local back = tab.came_from[tab.selected_id] and tab.came_from[tab.selected_id][dir]
-  local back_box = back and tab.last_layout.boxes[back]
-  local target = back_box and in_half(offset(back_box)) and back or nil
-  if not target then
-    local best, best_score
-    local best_al, best_al_score
-    for id, b in pairs(tab.last_layout.boxes) do
-      if id ~= tab.selected_id then
-        local dc, dr = offset(b)
-        if in_half(dc, dr) then
-          local score
-          if dx ~= 0 then score = math.abs(dc) + math.abs(dr) * 0.4 else score = math.abs(dr) + math.abs(dc) * 0.4 end
-          if aligned(b) then
-            if not best_al_score or score < best_al_score then best_al, best_al_score = id, score end
-          elseif not best_score or score < best_score then
-            best, best_score = id, score
-          end
+  local back = tab.came_from[sel] and tab.came_from[sel][dir]
+  local undo = tab.last_move and tab.last_move.to == sel and tab.last_move.from == back
+  local target
+  if back and boxes[back] and in_dir(boxes[back]) and (undo or connected(sel, back)) then
+    target = back
+  else
+    local best, best_key
+    local nearest -- across: the distance to the nearest level with a box
+    if across then
+      for id, b in pairs(boxes) do
+        if id ~= sel and in_dir(b) then
+          local dist = math.abs(level(b) - level(focus))
+          if not nearest or dist < nearest then nearest = dist end
         end
       end
     end
-    target = best_al or best
+    for id, b in pairs(boxes) do
+      if id ~= sel and in_dir(b) and (not across or math.abs(level(b) - level(focus)) == nearest) then
+        local key
+        if across then
+          local overlap = lo(b) <= hi(focus) and lo(focus) <= hi(b)
+          key = { connected(sel, id) and 0 or 1, overlap and 0 or 1, math.abs(center(b) - center(focus)), lo(b) }
+        else
+          key = { 0, 0, sign * (lo(b) - lo(focus)), 0 }
+        end
+        local better = not best_key
+        if not better then
+          for k = 1, 4 do
+            if key[k] ~= best_key[k] then better = key[k] < best_key[k]; break end
+          end
+        end
+        if better then best, best_key = id, key end
+      end
+    end
+    target = best
   end
   if target then
     local opposite = { left = 'right', right = 'left', up = 'down', down = 'up' }
     tab.came_from[target] = tab.came_from[target] or {}
-    tab.came_from[target][opposite[dir]] = tab.selected_id
+    tab.came_from[target][opposite[dir]] = sel
+    tab.last_move = { from = sel, to = target }
     tab.selected_id = target
     M.render_view()
   end
@@ -652,7 +665,7 @@ function M.flip()
   local current = state.orientation or config.get().window.orientation or 'horizontal'
   state.orientation = current == 'vertical' and 'horizontal' or 'vertical'
   -- Remembered moves name directions that no longer hold.
-  for _, t in ipairs(state.tabs) do t.came_from = nil end
+  for _, t in ipairs(state.tabs) do t.came_from, t.last_move = nil, nil end
   M.render_view()
 end
 
@@ -1066,7 +1079,7 @@ function M.on_mouse(clicks)
   if id then
     local tab = active_tab()
     tab.selected_id = id
-    tab.came_from = nil -- the selection jumped: no way back to remember
+    tab.came_from, tab.last_move = nil, nil -- the selection jumped: no way back to remember
     M.render_view()
     if clicks >= 2 then M.toggle_expand() end
   end
