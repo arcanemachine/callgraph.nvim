@@ -26,6 +26,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 - The split keeps a fixed size (`fixed_width` columns for `right`, `fixed_height` rows for `bottom`; `0` = fit to content).
 - A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Reopening the same function + direction jumps to the existing tab instead of duplicating.
 - The selected box's **function name is colored** (default green, `highlights.focus`), the location label `file:line` is **dimmed** (`highlights.loc`); `highlights.focus_bold` optionally bolds the name.
+- The **function the graph was opened on** has its name bold and underlined (`highlights.root`), on top of its color, so it is easy to find again (whenever `highlight` or `colors` is on).
 - `<Enter>` jumps to the definition and **keeps the view open**; only `q` closes it (focus returns to the original window on close); `:q` closes the whole view.
 
 ### Keymaps
@@ -165,6 +166,7 @@ require('callgraph').setup({
     focus = 'CallgraphFocus',       -- focused function name color (default green)
     focus_bold = false,             -- bold the focused function name
     loc = 'CallgraphLoc',           -- location label color (default dim)
+    root = 'CallgraphRoot',         -- the opened function's name (default bold + underline)
     tab_active = 'CallgraphTabActive',     -- current tab label
     tab_inactive = 'CallgraphTabInactive', -- other tab labels
   },

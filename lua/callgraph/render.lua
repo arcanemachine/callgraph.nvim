@@ -242,6 +242,18 @@ function M.render(buf, layout, graph, view)
     layout.box_marks[id] = vim.api.nvim_buf_set_extmark(buf, M.anchor_ns, b.row + name_row - 1, byte_col, {})
   end
 
+  -- The root's name gets the root group on top of its color, so the
+  -- function the graph was opened on is easy to find.
+  local function mark_root(group)
+    local rid = graph and graph.root and graph.root.id
+    local b, mark_id = rid and layout.boxes[rid], rid and layout.box_marks[rid]
+    if not (group and b and mark_id) then return end
+    local pos = vim.api.nvim_buf_get_extmark_by_id(buf, M.anchor_ns, mark_id, {})
+    if not pos or #pos == 0 then return end
+    local name_end = util.char_to_byte(lines[pos[1] + 1] or '', b.col + (b.name_offset or 0) + b.name_width)
+    vim.api.nvim_buf_set_extmark(buf, M.ns, pos[1], pos[2], { end_col = name_end, hl_group = group, priority = 4200 })
+  end
+
   -- Colors mode: color every part (borders, function names, locations, edges)
   -- and recolor the focused box's name. Falls back to the legacy highlight path
   -- (focus + dim location) when colors are off.
@@ -263,6 +275,7 @@ function M.render(buf, layout, graph, view)
         end
       end
     end
+    mark_root(view.highlights and view.highlights.root)
     return
   end
 
@@ -271,6 +284,7 @@ function M.render(buf, layout, graph, view)
   if not view.highlight then return end
 
   local hl = view.highlights
+  mark_root(hl.root)
 
   for id, b in pairs(layout.boxes) do
     local mark_id = layout.box_marks[id]

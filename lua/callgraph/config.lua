@@ -87,6 +87,7 @@ M.defaults = {
     -- size jump. Turn on for a stronger selection cue.
     focus_bold = false,
     loc = 'CallgraphLoc',     -- file:line label (dimmer)
+    root = 'CallgraphRoot',   -- the name of the function the graph was opened on (bold, underlined)
     tab_active = 'CallgraphTabActive', -- current tab label on the tabline
     tab_inactive = 'CallgraphTabInactive', -- other tab labels on the tabline
   },
@@ -223,6 +224,8 @@ function M.define_highlights()
     vim.api.nvim_set_hl(0, h.focus, focus_attrs)
     vim.api.nvim_set_hl(0, h.loc, { fg = '#5c6370' })
   end
+  -- No color of its own: it adds to the name's color, selected or not.
+  vim.api.nvim_set_hl(0, h.root, { default = true, bold = true, underline = true })
   vim.api.nvim_set_hl(0, h.tab_active, { default = true, fg = '#ffffff', bg = '#444444', bold = true })
   vim.api.nvim_set_hl(0, h.tab_inactive, { default = true, fg = '#888888' })
 end

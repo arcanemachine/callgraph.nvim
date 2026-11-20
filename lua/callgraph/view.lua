@@ -885,6 +885,11 @@ function M.update_zoom()
   vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, 0, {
     end_col = #box.full_name, hl_group = colors and 'CallgraphFocus' or hl.focus,
   })
+  if box.id == tab.graph.root.id then
+    vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, 0, {
+      end_col = #box.full_name, hl_group = hl.root, priority = 4200,
+    })
+  end
   if marker ~= '' then
     vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 1, #row2 - #marker, {
       end_col = #row2, hl_group = colors and 'CallgraphSymbol' or hl.focus,
@@ -939,6 +944,12 @@ function M.update_zoom_dense(box, marker, opts)
   vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, p, {
     end_col = p + n, hl_group = colors and 'CallgraphFocus' or hl.focus,
   })
+  local tab = active_tab()
+  if tab and tab.graph and box.id == tab.graph.root.id then
+    vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, p, {
+      end_col = p + n, hl_group = hl.root, priority = 4200,
+    })
+  end
   if marker ~= '' then
     vim.api.nvim_buf_set_extmark(state.zoom_buf, zoom_ns, 0, #text - #marker, {
       end_col = #text, hl_group = colors and 'CallgraphSymbol' or hl.focus,
