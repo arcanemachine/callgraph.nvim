@@ -26,7 +26,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 - The split keeps a fixed size (`fixed_width` columns for `right`, `fixed_height` rows for `bottom`; `0` = fit to content).
 - A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Reopening the same function + direction jumps to the existing tab instead of duplicating.
 - The selected box's **function name is colored** (default green, `highlights.focus`), the location label `file:line` is **dimmed** (`highlights.loc`); `highlights.focus_bold` optionally bolds the name.
-- `<Enter>` jumps to the definition and **keeps the view open**; only `q` / `<Esc>` close it (focus returns to the original window on close).
+- `<Enter>` jumps to the definition and **keeps the view open**; only `q` closes it (focus returns to the original window on close); `:q` closes the whole view.
 
 ### Keymaps
 
@@ -40,7 +40,8 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `D` | switch between boxed and dense boxes |
 | `v` | flip between left-to-right and top-to-bottom |
 | `<Tab>` `<S-Tab>` | cycle tabs |
-| `q` `<Esc>` | close the current tab (closes the view when the last tab closes) |
+| `q` | close the current tab (closes the view when the last tab closes) |
+| `<Esc>` | close the docs float (`K`) or the focus float, also from inside the docs float; never the view |
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |
 | `+` / `=` / `-` | depth +1 / -1 |
@@ -185,7 +186,8 @@ require('callgraph').setup({
     move_left_alt = '<Left>', move_down_alt = '<Down>',
     move_up_alt = '<Up>', move_right_alt = '<Right>',
     toggle_expand = '<Space>',
-    close = 'q', close_alt = '<Esc>',
+    close = 'q', close_alt = '', -- close_alt: a second close-tab key
+    close_popup = '<Esc>', -- close the docs float and the focus float
     refresh = 'r',
     to_callin = 'i', to_callout = 'o',
     depth_up = '+', depth_up_alt = '=', -- `=` equals `+` (no shift needed)

@@ -1,5 +1,5 @@
 -- jump_to_def keeps the callgraph window open: it focuses the main window,
--- jumps to the definition there, and only q/Esc closes the view.
+-- jumps to the definition there, and only q closes the view.
 -- Run: nvim --headless -u NONE -l tests/jump.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)

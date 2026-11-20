@@ -690,7 +690,7 @@ function M.jump_to_def()
   if not tab or not tab.graph then return end
   local node = tab.graph.nodes[tab.selected_id]
   if not node or not node.uri then return end
-  -- Keep the view open; only q/Esc closes it. Focus the main window, jump to
+  -- Keep the view open; only q closes it. Focus the main window, jump to
   -- the definition there, and leave the callgraph window on screen.
   local orig = state.orig_win
   if orig and vim.api.nvim_win_is_valid(orig) then
@@ -991,8 +991,31 @@ function M.hover_docs()
       vim.notify('Callgraph: no docs for ' .. (node.name or '?'), vim.log.levels.INFO)
       return
     end
-    vim.lsp.util.open_floating_preview(lines, 'markdown', { border = 'rounded', focus_id = 'callgraph_hover' })
+    local fbuf, fwin = vim.lsp.util.open_floating_preview(lines, 'markdown', { border = 'rounded', focus_id = 'callgraph_hover' })
+    -- Entered with a second K: the same key closes it from inside.
+    local key = config.get().keymaps.close_popup
+    if key and key ~= '' then
+      vim.keymap.set('n', key, function() pcall(vim.api.nvim_win_close, fwin, true) end,
+        { buffer = fbuf, silent = true, nowait = true })
+    end
   end, bufnr)
+end
+
+--- Close the popups over the view: the docs float (K) and the focus float.
+--- Returns whether one was open.
+function M.close_popups()
+  if not state then return false end
+  local closed = false
+  local docs = vim.b[state.buf].lsp_floating_preview
+  if docs and vim.api.nvim_win_is_valid(docs) then
+    pcall(vim.api.nvim_win_close, docs, true)
+    closed = true
+  end
+  if state.zoom_win and vim.api.nvim_win_is_valid(state.zoom_win) then
+    M.close_zoom()
+    closed = true
+  end
+  return closed
 end
 
 function M.on_mouse(clicks)
@@ -1024,7 +1047,8 @@ function M.show_help()
     '  K                   docs (LSP hover)',
     '  D                   boxed / dense boxes',
     '  v                   left-to-right / top-to-bottom',
-    '  q / Esc             close tab',
+    '  q                   close tab',
+    '  Esc                 close the docs / focus float',
     '  r                   refresh',
     '  i / o               callin / callout',
     '  + / = -            depth +1 / -1',
@@ -1057,7 +1081,13 @@ function M.setup_keymaps()
   set(km.move_right_alt, function() M.move('right') end)
   set(km.toggle_expand, function() M.toggle_expand() end)
   set(km.close, function() M.close_tab() end)
-  set(km.close_alt, function() M.close_tab() end)
+  -- One key for both: it closes the popups first, the tab only when none is open.
+  if km.close_alt ~= km.close_popup then
+    set(km.close_alt, function() M.close_tab() end)
+  end
+  set(km.close_popup, function()
+    if not M.close_popups() and km.close_alt == km.close_popup then M.close_tab() end
+  end)
   set(km.refresh, function() M.rebuild() end)
   set(km.to_callin, function() M.set_direction('callin') end)
   set(km.to_callout, function() M.set_direction('callout') end)
