@@ -77,8 +77,8 @@ end
 -- Render the logical tabs onto vim.wo[win].winbar, the native window-local
 -- top bar. Unlike the global 'tabline' (which would span the whole editor and
 -- clash with barbar), the winbar shows only across the callgraph window. Uses
--- statusline syntax; switching tabs is keyboard-driven (<Tab>/<S-Tab>) because
--- winbar has no click targets like 'tabline' does.
+-- statusline syntax; switching tabs is keyboard-driven (<Tab>/<S-Tab>). The
+-- right end carries a clickable hint for the key help.
 local function update_winbar()
   if not state or not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
   local opts = config.get()
@@ -90,7 +90,17 @@ local function update_winbar()
     local hl = (i == state.active) and hl_active or hl_inactive
     parts[#parts + 1] = '%#' .. hl .. '#' .. label .. '%*'
   end
-  vim.wo[state.win].winbar = table.concat(parts, '  ')
+  local bar = table.concat(parts, '  ')
+  local help = opts.keymaps.help
+  if help and help ~= '' then
+    bar = bar .. '%=%#' .. hl_inactive .. '#%@v:lua.callgraph_help_click@' .. help .. ' keys%X'
+  end
+  vim.wo[state.win].winbar = bar
+end
+
+-- Click handler for the winbar's help hint (statusline clicks need a global).
+function _G.callgraph_help_click()
+  require('callgraph.view').show_help()
 end
 
 function M.open_with_root(root, direction, encoding, client)
@@ -1075,6 +1085,15 @@ end
 function M.on_mouse(clicks)
   if not state or not state.win or not vim.api.nvim_win_is_valid(state.win) then return end
   local m = vim.fn.getmousepos()
+  -- The view's own click mapping takes clicks on its winbar too: the help
+  -- hint at its right end opens the help.
+  if m.winid == state.win and m.winrow == 1 and vim.wo[state.win].winbar ~= '' then
+    local help = config.get().keymaps.help
+    if help and help ~= '' and m.wincol > vim.api.nvim_win_get_width(state.win) - vim.fn.strdisplaywidth(help .. ' keys') then
+      M.show_help()
+    end
+    return
+  end
   local id = box_at(m.line, m.column)
   if id then
     local tab = active_tab()
@@ -1092,26 +1111,87 @@ function M.scroll(delta)
   vim.api.nvim_win_set_cursor(state.win, { line, cur[2] })
 end
 
+-- The help's rows: the keys as configured (an entry set to '' is left out)
+-- and what they do.
+local function help_rows()
+  local km = config.get().keymaps
+  local rows = {
+    { { km.move_left, km.move_down, km.move_up, km.move_right }, 'move the selection' },
+    { { km.move_left_alt, km.move_down_alt, km.move_up_alt, km.move_right_alt }, 'move the selection' },
+    { { km.toggle_expand }, 'expand / collapse' },
+    { { km.jump_to_def, km.jump_to_def_alt }, 'jump to the definition (the view stays)' },
+    { { km.hover }, 'docs for the function (LSP hover)' },
+    { { km.reroot }, 'new graph on the selected function' },
+    { { km.to_callin, km.to_callout }, 'callers / callees of the root' },
+    { { km.depth_up, km.depth_up_alt }, 'one level deeper' },
+    { { km.depth_down }, 'one level shallower' },
+    { { km.toggle_style }, 'boxed / dense boxes' },
+    { { km.flip }, 'left-to-right / top-to-bottom' },
+    { { km.tab_next, km.tab_prev }, 'next / previous tab' },
+    { { km.refresh }, 'refresh' },
+    { { km.win_grow, km.win_shrink }, 'grow / shrink the view' },
+    { { km.close_popup }, 'close the docs / focus float' },
+    { { km.close, km.close_alt }, 'close the tab (:q closes the view)' },
+    { { km.help }, 'this help' },
+    { { 'click', 'double-click' }, 'select / expand' },
+  }
+  if config.get().multi_def then
+    table.insert(rows, 4, { { km.reselect_def }, 're-pick the definition' })
+  end
+  local out = {}
+  for _, r in ipairs(rows) do
+    local keys = vim.tbl_filter(function(k) return k and k ~= '' end, r[1])
+    if #keys > 0 then out[#out + 1] = { table.concat(keys, ' '), r[2] } end
+  end
+  return out
+end
+
+--- The key help in a float over the editor; ?, q or Esc closes it. Already
+--- open (a second click on the hint), it stays.
 function M.show_help()
-  vim.notify(table.concat({
-    'Callgraph keymaps',
-    '  h/j/k/l / arrows    move selection',
-    '  <Space>             expand / collapse',
-    '  Enter / d           jump to definition',
-    '  R                   re-pick definition (multi-def)',
-    '  K                   docs (LSP hover)',
-    '  D                   boxed / dense boxes',
-    '  v                   left-to-right / top-to-bottom',
-    '  q                   close tab',
-    '  Esc                 close the docs / focus float',
-    '  r                   refresh',
-    '  i / o               callin / callout',
-    '  .                   new graph on the selected function',
-    '  + / = -            depth +1 / -1',
-    '  > / <               grow / shrink view window',
-    '  click / dbl-click   select / expand (mouse)',
-    '  Tab / Shift-Tab     switch tab',
-  }, '\n'), vim.log.levels.INFO, { title = 'Callgraph' })
+  if state and state.help_win and vim.api.nvim_win_is_valid(state.help_win) then return end
+  local rows = help_rows()
+  local kw = 0
+  for _, r in ipairs(rows) do kw = math.max(kw, vim.fn.strdisplaywidth(r[1])) end
+  local lines = {}
+  for _, r in ipairs(rows) do
+    lines[#lines + 1] = ' ' .. r[1] .. string.rep(' ', kw - vim.fn.strdisplaywidth(r[1]) + 3) .. r[2] .. ' '
+  end
+  local width = 0
+  for _, l in ipairs(lines) do width = math.max(width, vim.fn.strdisplaywidth(l)) end
+  local height = math.min(#lines, math.max(vim.o.lines - 4, 1))
+  width = math.min(width, math.max(vim.o.columns - 2, 1))
+
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].bufhidden = 'wipe'
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = 'editor',
+    row = math.floor((vim.o.lines - height) / 2) - 1,
+    col = math.floor((vim.o.columns - width) / 2),
+    width = width,
+    height = height,
+    border = 'rounded',
+    title = ' Callgraph keys ',
+    title_pos = 'center',
+    style = 'minimal',
+  })
+  if state then state.help_win = win end
+  local hl = config.get().highlights
+  for i, r in ipairs(rows) do
+    vim.api.nvim_buf_set_extmark(buf, zoom_ns, i - 1, 1, { end_col = 1 + #r[1], hl_group = hl.focus })
+  end
+  local function close()
+    if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+  end
+  local km = config.get().keymaps
+  for _, key in ipairs({ km.help, 'q', '<Esc>' }) do
+    if key and key ~= '' then
+      vim.keymap.set('n', key, close, { buffer = buf, silent = true, nowait = true })
+    end
+  end
+  vim.api.nvim_create_autocmd('WinLeave', { buffer = buf, once = true, callback = close })
 end
 
 -- ---------------------------------------------------------------------------

@@ -48,7 +48,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `.` | open a graph rooted on the selected function, in a new tab (same direction) |
 | `+` / `=` / `-` | depth +1 / -1 |
 | `<` / `>` | grow / shrink the view window (width for `right`, height for `bottom`) |
-| `?` | keymap help |
+| `?` | key help (a float; `?`, `q` or `<Esc>` closes it) — also the `? keys` button at the right of the tab bar |
 
 Mouse: single click selects a box, **double-click** expands/collapses, scroll wheel scrolls the canvas.
 
