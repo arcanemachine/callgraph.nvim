@@ -50,14 +50,33 @@ local function tab_key(name, direction, arrows)
   return name .. arrows.right
 end
 
--- Switch the active tab, remembering the previous one so closing a tab can
--- return to wherever the user was before (temporarily flipping direction with
--- i/o and closing lands back on the originating tab).
-local function set_active(i)
-  if i ~= state.active then
-    state.prev_active = state.active
-    state.active = i
+-- History of the tabs visited, like a browser's: back and forward walk it,
+-- any other switch adds to it and drops what lay ahead.
+local function visit(tab)
+  local h = state.history
+  -- Already there (closing a tab, reopening the current one): keep what lies ahead.
+  if h[state.hist_pos] == tab then return end
+  for i = #h, state.hist_pos + 1, -1 do h[i] = nil end
+  if h[#h] ~= tab then h[#h + 1] = tab end
+  state.hist_pos = #h
+end
+
+-- Drop a closed tab from the history; the position moves back past it.
+local function forget(tab)
+  local kept, pos = {}, state.hist_pos
+  for i, t in ipairs(state.history) do
+    if t == tab or kept[#kept] == t then
+      if i <= state.hist_pos then pos = pos - 1 end
+    else
+      kept[#kept + 1] = t
+    end
   end
+  state.history, state.hist_pos = kept, math.max(math.min(pos, #kept), #kept > 0 and 1 or 0)
+end
+
+local function set_active(i)
+  state.active = i
+  visit(state.tabs[i])
 end
 
 -- Make the callgraph window the current one. The very first open focuses it
@@ -125,7 +144,8 @@ function M.open_with_root(root, direction, encoding, client)
       client = client,
       tabs = {},
       active = 0,
-      prev_active = nil, -- tab active before the current one
+      history = {}, -- tabs in the order visited
+      hist_pos = 0,
       last_w = nil,
       keyed = false,
     }
@@ -703,6 +723,22 @@ function M.reroot()
   M.open_with_root(node.item, tab.direction, state.encoding, state.client)
 end
 
+--- Walk the history of visited tabs: -1 back, 1 forward.
+function M.history_step(delta)
+  if not state then return end
+  local tab = state.history[state.hist_pos + delta]
+  if not tab then return end
+  for i, t in ipairs(state.tabs) do
+    if t == tab then
+      state.hist_pos = state.hist_pos + delta
+      state.active = i
+      M.render_view()
+      M.focus_selected()
+      return
+    end
+  end
+end
+
 --- Close the active tab; when the last tab closes, close the window.
 function M.close_tab()
   if not state then return end
@@ -710,17 +746,14 @@ function M.close_tab()
     M.close()
     return
   end
-  table.remove(state.tabs, state.active)
-  -- Return to the tab that was active before this one (e.g. closing a
-  -- direction-flip tab lands back where the user came from). Fall back to the
-  -- adjacent tab when there's no recorded previous one or it was removed.
-  local target = state.prev_active
-  state.prev_active = nil
-  if target and target >= 1 and target <= #state.tabs then
-    state.active = target
-  elseif state.active > #state.tabs then
-    state.active = #state.tabs
+  -- Land on the tab visited before this one, as back would.
+  forget(table.remove(state.tabs, state.active))
+  local target = state.history[state.hist_pos]
+  local index = math.min(state.active, #state.tabs)
+  for i, t in ipairs(state.tabs) do
+    if t == target then index = i end
   end
+  set_active(index)
   M.render_view()
   M.focus_selected()
 end
@@ -1122,6 +1155,8 @@ local function help_rows()
     { { km.jump_to_def, km.jump_to_def_alt }, 'jump to the definition (the view stays)' },
     { { km.hover }, 'docs for the function (LSP hover)' },
     { { km.reroot }, 'new graph on the selected function' },
+    { { km.back, km.back_alt }, 'back to the graph seen before' },
+    { { km.forward }, 'forward again' },
     { { km.to_callin, km.to_callout }, 'callers / callees of the root' },
     { { km.depth_up, km.depth_up_alt }, 'one level deeper' },
     { { km.depth_down }, 'one level shallower' },
@@ -1228,6 +1263,9 @@ function M.setup_keymaps()
   set(km.to_callin, function() M.set_direction('callin') end)
   set(km.to_callout, function() M.set_direction('callout') end)
   set(km.reroot, function() M.reroot() end)
+  set(km.back, function() M.history_step(-1) end)
+  set(km.back_alt, function() M.history_step(-1) end)
+  set(km.forward, function() M.history_step(1) end)
   set(km.depth_up, function() M.change_depth(1) end)
   set(km.depth_up_alt, function() M.change_depth(1) end)
   set(km.depth_down, function() M.change_depth(-1) end)

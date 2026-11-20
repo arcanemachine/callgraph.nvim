@@ -124,6 +124,9 @@ M.defaults = {
     to_callin = 'i',
     to_callout = 'o',
     reroot = '.', -- a new tab with the graph rooted on the selected function
+    back = '[', -- back to the tab seen before (history of tabs visited)
+    back_alt = '<C-o>',
+    forward = ']', -- forward again
     depth_up = '+',
     depth_up_alt = '=', -- `=` equals `+` (no shift needed)
     depth_down = '-',

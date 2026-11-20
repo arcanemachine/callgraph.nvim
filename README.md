@@ -46,6 +46,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |
 | `.` | open a graph rooted on the selected function, in a new tab (same direction) |
+| `[` or `<C-o>` / `]` | back / forward through the tabs in the order visited, like a browser; closing a tab lands where back would |
 | `+` / `=` / `-` | depth +1 / -1 |
 | `<` / `>` | grow / shrink the view window (width for `right`, height for `bottom`) |
 | `?` | key help (a float; `?`, `q` or `<Esc>` closes it) — also the `? keys` button at the right of the tab bar |
@@ -194,6 +195,7 @@ require('callgraph').setup({
     refresh = 'r',
     to_callin = 'i', to_callout = 'o',
     reroot = '.',       -- new tab rooted on the selected function
+    back = '[', back_alt = '<C-o>', forward = ']', -- tab history
     depth_up = '+', depth_up_alt = '=', -- `=` equals `+` (no shift needed)
     depth_down = '-',
     win_grow = '<', win_shrink = '>', -- '<' grow / '>' shrink the view window
