@@ -33,7 +33,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 
 | Key | Action |
 |---|---|
-| `h` `j` `k` `l` / arrows | move the selection (aligned column/row first, spatial nearest otherwise) |
+| `h` `j` `k` `l` / arrows | move the selection (back the way it came returns to the box it came from; otherwise aligned column/row first, spatial nearest otherwise) |
 | `<Space>` | expand / collapse the focused box |
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |

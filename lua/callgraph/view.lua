@@ -198,6 +198,7 @@ function M.rebuild()
   d:next(function(graph)
     tab.graph = graph
     tab.selected_id = graph.root.id
+    tab.came_from = nil -- the selection jumped: no way back to remember
     M.render_view()
   end, function(err)
     vim.notify('Callgraph: graph build failed: ' .. tostring(err), vim.log.levels.ERROR)
@@ -383,27 +384,41 @@ function M.move(dir)
     end
     return b.row < focus.row + focus.height and focus.row < b.row + b.height
   end
-  local best, best_score
-  local best_al, best_al_score
-  for id, b in pairs(tab.last_layout.boxes) do
-    if id ~= tab.selected_id then
-      local bc = b.col + b.width / 2
-      local br = b.row + 1
-      local dc, dr = bc - fc, br - fr
-      local in_half = (dx < 0 and dc < -0.1) or (dx > 0 and dc > 0.1) or (dy < 0 and dr < -0.1) or (dy > 0 and dr > 0.1)
-      if in_half then
-        local score
-        if dx ~= 0 then score = math.abs(dc) + math.abs(dr) * 0.4 else score = math.abs(dr) + math.abs(dc) * 0.4 end
-        if aligned(b) then
-          if not best_al_score or score < best_al_score then best_al, best_al_score = id, score end
-        elseif not best_score or score < best_score then
-          best, best_score = id, score
+  local function offset(b)
+    return b.col + b.width / 2 - fc, b.row + 1 - fr
+  end
+  local function in_half(dc, dr)
+    return (dx < 0 and dc < -0.1) or (dx > 0 and dc > 0.1) or (dy < 0 and dr < -0.1) or (dy > 0 and dr > 0.1)
+  end
+  -- Moving back the way the selection came returns to the box it came from,
+  -- not to whichever box is nearest.
+  tab.came_from = tab.came_from or {}
+  local back = tab.came_from[tab.selected_id] and tab.came_from[tab.selected_id][dir]
+  local back_box = back and tab.last_layout.boxes[back]
+  local target = back_box and in_half(offset(back_box)) and back or nil
+  if not target then
+    local best, best_score
+    local best_al, best_al_score
+    for id, b in pairs(tab.last_layout.boxes) do
+      if id ~= tab.selected_id then
+        local dc, dr = offset(b)
+        if in_half(dc, dr) then
+          local score
+          if dx ~= 0 then score = math.abs(dc) + math.abs(dr) * 0.4 else score = math.abs(dr) + math.abs(dc) * 0.4 end
+          if aligned(b) then
+            if not best_al_score or score < best_al_score then best_al, best_al_score = id, score end
+          elseif not best_score or score < best_score then
+            best, best_score = id, score
+          end
         end
       end
     end
+    target = best_al or best
   end
-  local target = best_al or best
   if target then
+    local opposite = { left = 'right', right = 'left', up = 'down', down = 'up' }
+    tab.came_from[target] = tab.came_from[target] or {}
+    tab.came_from[target][opposite[dir]] = tab.selected_id
     tab.selected_id = target
     M.render_view()
   end
@@ -636,6 +651,8 @@ function M.flip()
   if not state then return end
   local current = state.orientation or config.get().window.orientation or 'horizontal'
   state.orientation = current == 'vertical' and 'horizontal' or 'vertical'
+  -- Remembered moves name directions that no longer hold.
+  for _, t in ipairs(state.tabs) do t.came_from = nil end
   M.render_view()
 end
 
@@ -1049,6 +1066,7 @@ function M.on_mouse(clicks)
   if id then
     local tab = active_tab()
     tab.selected_id = id
+    tab.came_from = nil -- the selection jumped: no way back to remember
     M.render_view()
     if clicks >= 2 then M.toggle_expand() end
   end
