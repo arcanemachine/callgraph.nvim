@@ -126,8 +126,13 @@ function M.resolve_root(bufnr)
   end
   -- luacov: enable
   local encoding = client.offset_encoding or 'utf-16'
-  local win = vim.fn.bufwinid(bufnr)
-  if win < 0 then win = 0 end
+  -- The cursor of the window in use: with the file in several panes, the
+  -- first one showing it may sit elsewhere.
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= bufnr then
+    win = vim.fn.bufwinid(bufnr)
+    if win < 0 then win = 0 end
+  end
   local params = vim.lsp.util.make_position_params(win, encoding)
 
   local d = util.Deferred.new()
