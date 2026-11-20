@@ -185,11 +185,13 @@ function M.open_with_root(root, direction, encoding, client)
 end
 
 function M.open_float()
-  -- Right-side or bottom-side split window (not a float).
+  -- A split along the editor's bottom (full width) or right edge (full
+  -- height), whichever pane it is opened from.
   local pos = config.get().window.position
   local split = (pos == 'bottom') and 'below' or 'right'
   local win = vim.api.nvim_open_win(state.buf, true, {
     split = split,
+    win = -1,
   })
   state.win = win
   local wo = vim.wo[win]

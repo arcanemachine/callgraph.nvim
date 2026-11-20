@@ -38,7 +38,7 @@ M.defaults = {
   -- (zero overhead); jump goes to the first definition as before.
   multi_def = false,
   window = {
-    -- Split position: "right" (vertical split) or "bottom" (horizontal split).
+    -- Split along the editor's edge: "bottom" (full width) or "right" (full height).
     position = 'bottom',
 
     -- Right-split maximum width (fraction of the editor), used only when

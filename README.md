@@ -22,7 +22,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 
 ## View
 
-- Splits by default **below** the editor (`window.position` can be `right` / `bottom`); it is a read-only canvas buffer.
+- Splits along the editor's **bottom edge, full width**, by default, whichever pane it is opened from (`window.position = 'right'` puts it along the right edge, full height); it is a read-only canvas buffer.
 - The split keeps a fixed size (`fixed_width` columns for `right`, `fixed_height` rows for `bottom`; `0` = fit to content).
 - A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Reopening the same function + direction jumps to the existing tab instead of duplicating.
 - The selected box's **function name is colored** (default green, `highlights.focus`), the location label `file:line` is **dimmed** (`highlights.loc`); `highlights.focus_bold` optionally bolds the name.
@@ -150,7 +150,7 @@ require('callgraph').setup({
   highlight = true,       -- highlight toggle (on by default): color the focused
                           -- function name, dim the location label
   window = {
-    position = 'bottom',     -- 'right' (vertical split) | 'bottom' (horizontal)
+    position = 'bottom',     -- 'bottom' (full width) | 'right' (full height)
     fixed_width = 80,        -- right-layout fixed columns (0 = fit to content)
     fixed_height = 20,       -- bottom-layout fixed rows
     row_gap = 2,             -- vertical gap between stacked boxes in a column
