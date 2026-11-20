@@ -17,6 +17,10 @@ vim.api.nvim_create_user_command('Callgraph', function()
   require('callgraph').open('both')
 end, {})
 
+vim.api.nvim_create_user_command('CallgraphToggle', function()
+  require('callgraph').toggle()
+end, {})
+
 -- Debug tooling: `:CallgraphLog` opens the log file; `:CallgraphDebug on|off`
 -- toggles the location/move debug logging at runtime (see config `debug`).
 vim.api.nvim_create_user_command('CallgraphLog', function()

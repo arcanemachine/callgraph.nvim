@@ -28,6 +28,12 @@ function M.open(direction)
   view.open((direction == 'callin' or direction == 'both') and direction or 'callout')
 end
 
+--- Show or hide the view without starting a new graph (see view.toggle).
+function M.toggle()
+  ensure_highlights()
+  view.toggle()
+end
+
 -- Background documentSymbol cache so opening the view stays fast. Registered
 -- at require time (lazy: happens on first command) and costs nothing per file.
 vim.api.nvim_create_autocmd('LspAttach', {

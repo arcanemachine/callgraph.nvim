@@ -1,5 +1,5 @@
---- The callgraph view: a right-side split window hosting multiple independent
---- tabs (one per function + direction), a tab bar, fixed-width sizing,
+--- The callgraph view: a split along the editor's edge hosting tabs (one per
+--- function + direction) with a history, a tab bar, fixed sizing,
 --- buffer-local keymaps, mouse interaction, hover echo, and the async glue
 --- between LSP data and the layout/render core.
 
@@ -16,31 +16,51 @@ local util = require('callgraph.util')
 
 local M = {}
 local state = nil
+-- Box style and orientation switched in the view (D, v): kept for the session,
+-- across fresh graphs.
+local prefs = {}
 local zoom_ns = vim.api.nvim_create_namespace('callgraph_zoom')
 
 -- ---------------------------------------------------------------------------
 -- Entry points
 -- ---------------------------------------------------------------------------
 
---- Open (or reuse) the view for the function under the cursor.
+--- Open the view for the function under the cursor, starting fresh: the
+--- graphs opened so far and their history go. Run from inside the view, the
+--- open commands close it instead.
 function M.open(direction)
+  if M.in_view() then
+    M.close()
+    return
+  end
+  local from = vim.api.nvim_get_current_win()
   util.async_start(function()
     local ok, err = pcall(function()
-      local bufnr = vim.api.nvim_get_current_buf()
-      local curr_win = vim.api.nvim_get_current_win()
-      if state and state.win and curr_win == state.win and state.orig_win and vim.api.nvim_win_is_valid(state.orig_win) then
-        bufnr = vim.api.nvim_win_get_buf(state.orig_win)
-      end
+      local bufnr = vim.api.nvim_win_get_buf(from)
       local opts = config.get()
       source_mod.check_available(opts)
       local root, encoding, client = source_mod.resolve_root(bufnr, opts)
       if not root then return end
-      M.open_with_root(root, direction, encoding, client)
+      if state then state.tabs, state.active, state.history, state.hist_pos = {}, 0, {}, 0 end
+      M.open_with_root(root, direction, encoding, client, from)
     end)
     if not ok then
       vim.notify('Callgraph: ' .. tostring(err), vim.log.levels.ERROR)
     end
   end)
+end
+
+--- Show or hide the view without starting a new graph: open, it closes;
+--- closed, it comes back as it was left; with no graph yet, it opens one on
+--- the function under the cursor.
+function M.toggle()
+  if state and state.win and vim.api.nvim_win_is_valid(state.win) then
+    M.close()
+  elseif state and #state.tabs > 0 then
+    M.reopen()
+  else
+    M.open('both')
+  end
 end
 
 --- Tab identity: arrow before the name = callin, after = callout, both = both.
@@ -122,22 +142,37 @@ function _G.callgraph_help_click()
   require('callgraph.view').show_help()
 end
 
-function M.open_with_root(root, direction, encoding, client)
+-- The canvas buffer; it goes with the window.
+local function new_buffer()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[buf].bufhidden = 'wipe'
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].swapfile = false
+  vim.bo[buf].modifiable = false
+  return buf
+end
+
+--- Bring a closed view back with its graphs and history, from the current
+--- pane (definitions open there).
+function M.reopen()
+  state.orig_win = vim.api.nvim_get_current_win()
+  state.buf, state.keyed, state.last_w = new_buffer(), false, nil
+  M.open_float()
+  M.render_view()
+  M.focus_selected()
+end
+
+function M.open_with_root(root, direction, encoding, client, from)
   local opts = config.get()
-  local win = vim.api.nvim_get_current_win()
+  local win = (from and vim.api.nvim_win_is_valid(from)) and from or vim.api.nvim_get_current_win()
   local key = tab_key(root.name, direction, opts.window.arrows)
   -- Two functions can share a name (callbacks, static functions): a tab is
   -- the same one only for the same function, by its identity.
   local ident = graph_mod.node_id(root) .. '\0' .. direction
 
   if not state or not (state.win and vim.api.nvim_win_is_valid(state.win)) then
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.bo[buf].bufhidden = 'wipe'
-    vim.bo[buf].buftype = 'nofile'
-    vim.bo[buf].swapfile = false
-    vim.bo[buf].modifiable = false
     state = {
-      buf = buf,
+      buf = new_buffer(),
       win = nil,
       orig_win = win,
       encoding = encoding,
@@ -240,12 +275,13 @@ end
 function M.render_view()
   local opts = config.get()
   local tab = active_tab()
-  if not tab then return end
+  -- A build can finish after the view closed, or before the tab has a graph.
+  if not tab or not tab.graph or not (state.win and vim.api.nvim_win_is_valid(state.win)) then return end
   local layout = layout_mod.layout(tab.graph, opts, {
     direction = tab.direction,
     selected_id = tab.selected_id,
-    style = state.style,
-    orientation = state.orientation or opts.window.orientation,
+    style = prefs.style,
+    orientation = prefs.orientation or opts.window.orientation,
   })
   tab.last_layout = layout
 
@@ -694,8 +730,8 @@ end
 --- Flip the graph between left-to-right and top-to-bottom for this view.
 function M.flip()
   if not state then return end
-  local current = state.orientation or config.get().window.orientation or 'horizontal'
-  state.orientation = current == 'vertical' and 'horizontal' or 'vertical'
+  local current = prefs.orientation or config.get().window.orientation or 'horizontal'
+  prefs.orientation = current == 'vertical' and 'horizontal' or 'vertical'
   -- Remembered moves name directions that no longer hold.
   for _, t in ipairs(state.tabs) do t.came_from, t.last_move = nil, nil end
   M.render_view()
@@ -704,8 +740,8 @@ end
 --- Switch the box style between boxed and dense for this view.
 function M.toggle_style()
   if not state then return end
-  local current = state.style or config.get().window.style or 'boxed'
-  state.style = current == 'dense' and 'boxed' or 'dense'
+  local current = prefs.style or config.get().window.style or 'boxed'
+  prefs.style = current == 'dense' and 'boxed' or 'dense'
   M.render_view()
 end
 
@@ -746,6 +782,7 @@ function M.close_tab()
   if not state then return end
   if #state.tabs <= 1 then
     M.close()
+    state = nil -- nothing left to bring back
     return
   end
   -- Land on the tab visited before this one, as back would.
@@ -760,17 +797,45 @@ function M.close_tab()
   M.focus_selected()
 end
 
+--- Close the view's window. The graphs stay until a new one is opened from
+--- the code, so the toggle can bring them back.
 function M.close()
   if not state then return end
-  M.close_zoom()
+  M.close_popups()
   local orig = state.orig_win
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     pcall(vim.api.nvim_win_close, state.win, true)
   end
-  state = nil
+  state.win, state.buf = nil, nil
   if orig and vim.api.nvim_win_is_valid(orig) then
     vim.api.nvim_set_current_win(orig)
   end
+end
+
+--- The pane definitions open in: the one the view was opened from, else
+--- another pane of the tab page, else a new one above the view.
+function M.code_window()
+  local orig = state.orig_win
+  if orig and vim.api.nvim_win_is_valid(orig) and orig ~= state.win
+    and vim.api.nvim_win_get_tabpage(orig) == vim.api.nvim_win_get_tabpage(state.win) then
+    return orig
+  end
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(vim.api.nvim_win_get_tabpage(state.win))) do
+    if w ~= state.win and vim.api.nvim_win_get_config(w).relative == '' then
+      state.orig_win = w
+      return w
+    end
+  end
+  state.orig_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(true, false), false, { split = 'above', win = -1 })
+  return state.orig_win
+end
+
+--- Whether the cursor is in the view or one of its floats (docs, help).
+function M.in_view()
+  if not (state and state.win and vim.api.nvim_win_is_valid(state.win)) then return false end
+  local cur = vim.api.nvim_get_current_win()
+  local docs = state.buf and vim.api.nvim_buf_is_valid(state.buf) and vim.b[state.buf].lsp_floating_preview
+  return cur == state.win or cur == state.help_win or cur == docs
 end
 
 function M.jump_to_def()
@@ -778,12 +843,10 @@ function M.jump_to_def()
   if not tab or not tab.graph then return end
   local node = tab.graph.nodes[tab.selected_id]
   if not node or not node.uri then return end
-  -- Keep the view open; only q closes it. Focus the main window, jump to
-  -- the definition there, and leave the callgraph window on screen.
-  local orig = state.orig_win
-  if orig and vim.api.nvim_win_is_valid(orig) then
-    vim.api.nvim_set_current_win(orig)
-  end
+  -- Keep the view open: jump in the pane it was opened from, and leave the
+  -- view on screen.
+  local orig = M.code_window()
+  vim.api.nvim_set_current_win(orig)
   -- cscope nodes carry the *call-site* location in uri/range (cscope -L output
   -- is call sites, not definitions). Jump to the real definition via `cscope -1`
   -- — preferring the definition the user already chose when expanding; with
@@ -1105,13 +1168,17 @@ end
 function M.close_popups()
   if not state then return false end
   local closed = false
-  local docs = vim.b[state.buf].lsp_floating_preview
+  local docs = state.buf and vim.api.nvim_buf_is_valid(state.buf) and vim.b[state.buf].lsp_floating_preview
   if docs and vim.api.nvim_win_is_valid(docs) then
     pcall(vim.api.nvim_win_close, docs, true)
     closed = true
   end
   if state.zoom_win and vim.api.nvim_win_is_valid(state.zoom_win) then
     M.close_zoom()
+    closed = true
+  end
+  if state.help_win and vim.api.nvim_win_is_valid(state.help_win) then
+    vim.api.nvim_win_close(state.help_win, true)
     closed = true
   end
   return closed

@@ -17,17 +17,20 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `:Callout` | Build the graph rooted at the function under the cursor — **what it calls** |
 | `:Callin` | Build the graph rooted at the function under the cursor — **who calls it** |
 | `:Callgraph` | Both at once: callers fan out left of the function, callees right; each side expands in its own direction |
+| `:CallgraphToggle` | Show or hide the view without starting a new graph: open, it closes; closed, it comes back as it was left; with no graph yet, it opens `:Callgraph` |
 | `:CallgraphLog` | Open the debug log file |
 | `:CallgraphDebug on\|off` | Toggle debug logging at runtime |
+
+Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs opened so far and their history go. Run from inside the view, they close it (the graphs stay for `:CallgraphToggle`).
 
 ## View
 
 - Splits along the editor's **bottom edge, full width**, by default, whichever pane it is opened from (`window.position = 'right'` puts it along the right edge, full height); it is a read-only canvas buffer.
 - The split keeps a fixed size (`fixed_width` columns for `right`, `fixed_height` rows for `bottom`; `0` = fit to content).
-- A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Reopening the same function + direction jumps to the existing tab instead of duplicating.
+- A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Inside the view (`.`, `i` / `o`), opening the same function + direction again jumps to its tab instead of duplicating; opening from the code starts fresh.
 - The selected box's **function name is colored** (default green, `highlights.focus`), the location label `file:line` is **dimmed** (`highlights.loc`); `highlights.focus_bold` optionally bolds the name.
 - The **function the graph was opened on** has its name bold and underlined (`highlights.root`), on top of its color, so it is easy to find again (whenever `highlight` or `colors` is on).
-- `<Enter>` jumps to the definition and **keeps the view open**; only `q` closes it (focus returns to the original window on close); `:q` closes the whole view.
+- `<Enter>` jumps to the definition and **keeps the view open**; `q` closes a tab, and on the last tab drops the graphs; `:q`, the open commands run inside the view and `:CallgraphToggle` close the view and keep the graphs for `:CallgraphToggle` (focus returns to the pane it was opened from).
 
 ### Keymaps
 
@@ -41,7 +44,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `D` | switch between boxed and dense boxes |
 | `v` | flip between left-to-right and top-to-bottom |
 | `<Tab>` `<S-Tab>` | cycle tabs |
-| `q` | close the current tab (closes the view when the last tab closes) |
+| `q` | close the current tab (on the last tab, closes the view and drops the graphs) |
 | `<Esc>` | close the docs float (`K`) or the focus float, also from inside the docs float; never the view |
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |
@@ -119,10 +122,12 @@ LSP for the file type.
 -- lazy.nvim
 {
   'mengq627/callgraph.nvim',
-  cmd = { 'Callout', 'Callin', 'Callgraph' },
+  cmd = { 'Callout', 'Callin', 'Callgraph', 'CallgraphToggle' },
   keys = {
     { '<leader>co', '<cmd>Callout<CR>', desc = 'Call graph: callees' },
     { '<leader>ci', '<cmd>Callin<CR>',  desc = 'Call graph: callers' },
+    { '<leader>cg', '<cmd>Callgraph<CR>', desc = 'Call graph: callers and callees' },
+    { '<leader>cG', '<cmd>CallgraphToggle<CR>', desc = 'Call graph: show / hide' },
   },
   opts = {}, -- optional, see below
 }
@@ -225,7 +230,7 @@ require('callgraph').setup({
 ## Architecture
 
 ```
-plugin/callgraph.lua  lazy entry point: registers :Callout / :Callin / :Callgraph / :CallgraphLog / :CallgraphDebug
+plugin/callgraph.lua  lazy entry point: registers :Callout / :Callin / :Callgraph / :CallgraphToggle / :CallgraphLog / :CallgraphDebug
 lua/callgraph/
   init.lua      setup(), public API, LspAttach background cache
   config.lua    defaults + merge + highlight group definitions
