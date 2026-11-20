@@ -97,6 +97,9 @@ function M.open_with_root(root, direction, encoding, client)
   local opts = config.get()
   local win = vim.api.nvim_get_current_win()
   local key = tab_key(root.name, direction, opts.window.arrows)
+  -- Two functions can share a name (callbacks, static functions): a tab is
+  -- the same one only for the same function, by its identity.
+  local ident = graph_mod.node_id(root) .. '\0' .. direction
 
   if not state or not (state.win and vim.api.nvim_win_is_valid(state.win)) then
     local buf = vim.api.nvim_create_buf(false, true)
@@ -127,7 +130,7 @@ function M.open_with_root(root, direction, encoding, client)
 
   -- Same function + same direction -> reuse the tab (jump to it).
   for i, t in ipairs(state.tabs) do
-    if t.key == key then
+    if t.ident == ident then
       set_active(i)
       M.render_view()
       M.focus_selected()
@@ -137,7 +140,8 @@ function M.open_with_root(root, direction, encoding, client)
   end
 
   state.tabs[#state.tabs + 1] = {
-    key = key,
+    key = key, -- the label on the tab bar
+    ident = ident,
     root = root,
     direction = direction,
     view_depth = direction == 'both' and opts.both_depth or opts.max_depth,

@@ -138,6 +138,19 @@ vim.wait(200, function() return false end)
 check('last tab closed -> window closed', win_count() == 1)
 check('focus restored', vim.api.nvim_get_current_win() == orig_win)
 
+-- Two functions with the same name (another definition) get their own tabs;
+-- reopening one returns to its own tab.
+local other_main = item('main', 90)
+view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
+vim.wait(200, function() return false end)
+view.open_with_root(other_main, 'callout', 'utf-16', { name = 'fake' })
+vim.wait(200, function() return false end)
+check('same name, another function -> a new tab', labels_str() == 'main' .. arr .. '|[main' .. arr .. ']', labels_str())
+view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
+vim.wait(200, function() return false end)
+check('reopening the first returns to its tab', labels_str() == '[main' .. arr .. ']|main' .. arr, labels_str())
+view.close()
+
 print('---')
 if failed == 0 then print('TABS OK') else print('TABS FAILED: ' .. failed) end
 os.exit(failed == 0 and 0 or 1)
