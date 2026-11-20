@@ -123,6 +123,7 @@ M.defaults = {
     refresh = 'r',
     to_callin = 'i',
     to_callout = 'o',
+    reroot = '.', -- a new tab with the graph rooted on the selected function
     depth_up = '+',
     depth_up_alt = '=', -- `=` equals `+` (no shift needed)
     depth_down = '-',

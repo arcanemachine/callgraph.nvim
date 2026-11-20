@@ -45,6 +45,7 @@ a language-agnostic, cross-file source — plus optional `cscope` / heuristic so
 | `<Esc>` | close the docs float (`K`) or the focus float, also from inside the docs float; never the view |
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |
+| `.` | open a graph rooted on the selected function, in a new tab (same direction) |
 | `+` / `=` / `-` | depth +1 / -1 |
 | `<` / `>` | grow / shrink the view window (width for `right`, height for `bottom`) |
 | `?` | keymap help |
@@ -192,6 +193,7 @@ require('callgraph').setup({
     close_popup = '<Esc>', -- close the docs float and the focus float
     refresh = 'r',
     to_callin = 'i', to_callout = 'o',
+    reroot = '.',       -- new tab rooted on the selected function
     depth_up = '+', depth_up_alt = '=', -- `=` equals `+` (no shift needed)
     depth_down = '-',
     win_grow = '<', win_shrink = '>', -- '<' grow / '>' shrink the view window

@@ -654,6 +654,15 @@ function M.set_direction(dir)
   M.open_with_root(tab.root, dir, state.encoding, state.client)
 end
 
+--- Open a graph rooted on the selected function, in a tab of its own with
+--- the current tab's direction.
+function M.reroot()
+  local tab = active_tab()
+  local node = tab and tab.graph and tab.graph.nodes[tab.selected_id]
+  if not node or node == tab.graph.root or not node.item then return end
+  M.open_with_root(node.item, tab.direction, state.encoding, state.client)
+end
+
 --- Close the active tab; when the last tab closes, close the window.
 function M.close_tab()
   if not state then return end
@@ -1066,6 +1075,7 @@ function M.show_help()
     '  Esc                 close the docs / focus float',
     '  r                   refresh',
     '  i / o               callin / callout',
+    '  .                   new graph on the selected function',
     '  + / = -            depth +1 / -1',
     '  > / <               grow / shrink view window',
     '  click / dbl-click   select / expand (mouse)',
@@ -1106,6 +1116,7 @@ function M.setup_keymaps()
   set(km.refresh, function() M.rebuild() end)
   set(km.to_callin, function() M.set_direction('callin') end)
   set(km.to_callout, function() M.set_direction('callout') end)
+  set(km.reroot, function() M.reroot() end)
   set(km.depth_up, function() M.change_depth(1) end)
   set(km.depth_up_alt, function() M.change_depth(1) end)
   set(km.depth_down, function() M.change_depth(-1) end)
