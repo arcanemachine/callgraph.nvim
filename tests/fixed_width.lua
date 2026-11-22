@@ -1,5 +1,5 @@
 -- Fixed window width stays stable across expand/collapse; the toggle_expand
--- (<Space>) and jump_to_def (<CR>) keymaps are bound in the view buffer.
+-- (e) and jump_to_def (<CR>) keymaps are bound in the view buffer.
 -- Run: nvim --headless -u NONE -l tests/fixed_width.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)

@@ -659,7 +659,7 @@ expand_with_def = function(tab, node, fetch, def)
     node.range = { start = { line = def.line, character = 0 }, ['end'] = { line = def.line + 1, character = 0 } }
     node.selectionRange = node.range
   end
-  -- Already expanded with this definition? Space should toggle collapse back
+  -- Already expanded with this definition? the expand key should toggle collapse back
   -- (a plain rebuild always re-expands, so folding would never work).
   local has_visible = false
   for _, cid in ipairs(node.children) do

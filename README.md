@@ -37,7 +37,7 @@ Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs
 | Key | Action |
 |---|---|
 | `h` `j` `k` `l` / arrows | move the selection: across columns (rows when top-to-bottom) to the nearest one, preferring the function's caller or callee, then the box level with it; within a column (row when top-to-bottom) it stops at the end. Back the way it came returns to where it came from, along a call edge or to undo the last move |
-| `<Space>` | expand / collapse the focused box |
+| `e` | expand / collapse the focused box (not `<Space>`: a common leader key, which the view's keys would take over) |
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |
 | `K` | docs for the selected function (LSP hover) |
@@ -194,7 +194,7 @@ require('callgraph').setup({
     move_left = 'h', move_down = 'j', move_up = 'k', move_right = 'l',
     move_left_alt = '<Left>', move_down_alt = '<Down>',
     move_up_alt = '<Up>', move_right_alt = '<Right>',
-    toggle_expand = '<Space>',
+    toggle_expand = 'e',
     close = 'q', close_alt = '', -- close_alt: a second close-tab key
     close_popup = '<Esc>', -- close the docs float and the focus float
     refresh = 'r',
