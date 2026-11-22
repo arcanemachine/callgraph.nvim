@@ -67,7 +67,7 @@ end
 local function open()
   vim.cmd('edit ' .. root .. '/tests/test.c')
   view.open_with_root(place, 'callout', 'utf-16', client)
-  vim.wait(200, function() return false end)
+  vim.wait(50, function() return false end)
 end
 
 -- The root's name is wider than the limit: its box is shortened, so the

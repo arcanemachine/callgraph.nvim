@@ -54,7 +54,7 @@ for _, style in ipairs({ 'boxed', 'dense' }) do
   config.set({ show_call_site = false, window = { style = style } })
   vim.cmd('edit ' .. root .. '/tests/test.c')
   view.open_with_root(item('x', 1), 'callin', 'utf-16', { name = 'fake' })
-  vim.wait(200, function() return false end)
+  vim.wait(50, function() return false end)
 
   -- Without memory, left from x lands on p1, the box level with it.
   check(style .. ': left from x, fresh, goes to p1', walk({ 'left' }) == 'p1', word())
@@ -79,7 +79,7 @@ for _, style in ipairs({ 'boxed', 'dense' }) do
   forgets('flip', function() view.flip(); view.flip() end)
   forgets('rebuild', function()
     view.rebuild()
-    vim.wait(200, function() return false end)
+    vim.wait(50, function() return false end)
   end)
   forgets('click', function()
     local lnum = vim.fn.search('\\<x\\>', 'n')

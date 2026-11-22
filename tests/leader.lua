@@ -40,7 +40,7 @@ vim.keymap.set('n', '<leader>z', function() ran = true end)
 config.set({ show_call_site = false })
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open('both')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('in the view', vim.wo.winbar ~= '')
 -- A buffer map on <Space> with nowait fires before a leader mapping can.
 local m = vim.fn.maparg(' ', 'n', false, true)

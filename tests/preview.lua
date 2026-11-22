@@ -53,7 +53,7 @@ source_mod.provider = function()
   }
 end
 
-local function settle() vim.wait(200, function() return false end) end
+local function settle() vim.wait(50, function() return false end) end
 local function press(keys)
   vim.api.nvim_feedkeys(vim.keycode(keys), 'x', false)
   settle()

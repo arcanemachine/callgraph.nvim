@@ -68,7 +68,7 @@ end
 local arr = config.get().window.arrows.right -- 
 
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 check('tab1: callout main', labels_str() == '[' .. 'main' .. arr .. ']', labels_str())
 check('window open', win_count() == 2)
 check('winbar set on view window', vim.wo[vim.api.nvim_get_current_win()].winbar ~= '', vim.wo[vim.api.nvim_get_current_win()].winbar)
@@ -78,18 +78,18 @@ check('global tabline untouched', vim.o.tabline == '' or vim.o.tabline == vim.NI
 -- the view must re-focus even though the window already exists.
 vim.api.nvim_set_current_win(orig_win)
 view.open_with_root(l1a, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 check('focus returns to view for new tab', vim.api.nvim_get_current_win() ~= orig_win, 'cur=' .. vim.api.nvim_get_current_win())
 check('tab2: new tab added', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']', labels_str())
 
 vim.api.nvim_set_current_win(orig_win)
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 check('focus returns to view for reused tab', vim.api.nvim_get_current_win() ~= orig_win, 'cur=' .. vim.api.nvim_get_current_win())
 check('reopen main -> jump to tab1', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr, labels_str())
 
 view.open_with_root(main, 'callin', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 check('callin is a different tab', labels_str() == 'main' .. arr .. '|' .. 'func_l1_a' .. arr .. '|[' .. arr .. 'main]', labels_str())
 
 -- Pressing <Tab> inside the view must cycle callgraph tabs (the buffer-local
@@ -97,45 +97,45 @@ check('callin is a different tab', labels_str() == 'main' .. arr .. '|' .. 'func
 local g_tab = false
 vim.keymap.set('n', '<Tab>', function() g_tab = true end, {})
 vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Tab>', true, false, true), 'x', false)
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('Tab key cycles tabs in view', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr .. '|' .. arr .. 'main', labels_str())
 check('global Tab mapping not triggered', g_tab == false, tostring(g_tab))
 -- Restore the active tab to callin (tab 3) for the remaining checks.
 view.tab_next()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 view.tab_next()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('restored active to callin tab', labels_str() == 'main' .. arr .. '|' .. 'func_l1_a' .. arr .. '|[' .. arr .. 'main]', labels_str())
 
 -- <S-Tab> from the last tab goes back to tab 2.
 view.tab_prev()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('tab_prev switches tab', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']|' .. arr .. 'main', labels_str())
 
 -- <Tab> moves forward again to the callin tab.
 view.tab_next()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('tab_next switches tab', labels_str() == 'main' .. arr .. '|' .. 'func_l1_a' .. arr .. '|[' .. arr .. 'main]', labels_str())
 
 view.close_tab()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 -- func_l1_a was only passed over by <S-Tab> / <Tab>, so it isn't in the
 -- history: closing callin-main lands on main, seen before.
 check('close active tab (callin main)', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr, labels_str())
 
 -- <S-Tab> wraps from tab 1 to tab 2, <Tab> from tab 2 back to tab 1.
 view.tab_prev()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('tab_prev wraps to tab2', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']', labels_str())
 
 view.tab_next()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('tab_next wraps to tab1', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr, labels_str())
 
 view.close_tab()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 view.close_tab()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('last tab closed -> window closed', win_count() == 1)
 check('focus restored', vim.api.nvim_get_current_win() == orig_win)
 
@@ -143,12 +143,12 @@ check('focus restored', vim.api.nvim_get_current_win() == orig_win)
 -- reopening one returns to its own tab.
 local other_main = item('main', 90)
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 view.open_with_root(other_main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('same name, another function -> a new tab', labels_str() == 'main' .. arr .. '|[main' .. arr .. ']', labels_str())
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('reopening the first returns to its tab', labels_str() == '[main' .. arr .. ']|main' .. arr, labels_str())
 view.close()
 

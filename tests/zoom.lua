@@ -49,7 +49,7 @@ local code_win = vim.api.nvim_get_current_win()
 -- Depth 1 keeps `long` collapsed, so its box carries the expand marker.
 config.set(vim.tbl_deep_extend('force', config.get(), { max_depth = 1 }))
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local graph_win = vim.api.nvim_get_current_win()
 
 local function zoom_win()

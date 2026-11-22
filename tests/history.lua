@@ -56,7 +56,7 @@ local function count()
 end
 local function press(keys)
   vim.api.nvim_feedkeys(vim.keycode(keys), 'x', false)
-  vim.wait(100, function() return false end)
+  vim.wait(50, function() return false end)
 end
 -- Open the graph of the selected callee: move right, then `.`.
 local function dive() press('l'); press('.') end
@@ -64,7 +64,7 @@ local function dive() press('l'); press('.') end
 config.set({ show_call_site = false })
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(I.a, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local graph_win = vim.api.nvim_get_current_win()
 local graph_buf = vim.api.nvim_get_current_buf()
 
@@ -113,7 +113,7 @@ check('forward still reaches c after the close', active() == 'c', active())
 -- Reopening the current tab from the code while back keeps what lies ahead.
 press('[') -- a
 view.open_with_root(I.a, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 press(']')
 check('forward still works after reopening the current tab', active() == 'c', active())
 

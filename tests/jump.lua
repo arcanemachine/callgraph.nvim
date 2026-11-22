@@ -45,7 +45,7 @@ end
 vim.cmd('edit ' .. root .. '/tests/test.c')
 local orig_win = vim.api.nvim_get_current_win()
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 
 local failed = 0
 local function check(name, cond, detail)
@@ -59,7 +59,7 @@ end
 check('view open', win_count() == 2)
 
 view.jump_to_def()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 
 check('window stays open after jump', win_count() == 2)
 check('focus moved to main window', vim.api.nvim_get_current_win() == orig_win)
@@ -67,7 +67,7 @@ check('jumped to main def', jumped ~= nil and jumped.uri == U and jumped.line ==
 
 -- q still closes the view.
 view.close()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('q closes the view', win_count() == 1)
 
 print('---')

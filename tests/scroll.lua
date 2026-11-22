@@ -41,7 +41,7 @@ end
 
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 
 local win = vim.api.nvim_get_current_win()
 local buf = vim.api.nvim_win_get_buf(win)
@@ -77,9 +77,9 @@ end
 
 check('window fixed width', vim.api.nvim_win_get_width(win) == 15)
 
-view.move('right'); vim.wait(200, function() return false end)
-view.move('right'); vim.wait(200, function() return false end)
-view.move('right'); vim.wait(200, function() return false end)
+view.move('right'); vim.wait(50, function() return false end)
+view.move('right'); vim.wait(50, function() return false end)
+view.move('right'); vim.wait(50, function() return false end)
 local sc1 = leftcol()
 check('scrolled right to reach l2c', sc1 > 0, 'leftcol=' .. sc1)
 check('cursor visible after moving right', visible_ok(), 'char=' .. char_col() .. ' leftcol=' .. sc1)
@@ -88,9 +88,9 @@ check('cursor visible after moving right', visible_ok(), 'char=' .. char_col() .
 check('right box keeps margin from right edge', right_margin() >= 2,
   'char=' .. char_col() .. ' leftcol=' .. sc1 .. ' right_margin=' .. right_margin())
 
-view.move('left'); vim.wait(200, function() return false end)
-view.move('left'); vim.wait(200, function() return false end)
-view.move('left'); vim.wait(200, function() return false end)
+view.move('left'); vim.wait(50, function() return false end)
+view.move('left'); vim.wait(50, function() return false end)
+view.move('left'); vim.wait(50, function() return false end)
 local sc2 = leftcol()
 check('scrolled back left to main', sc2 < sc1, 'leftcol=' .. sc2)
 check('cursor visible after moving left', visible_ok(), 'char=' .. char_col() .. ' leftcol=' .. sc2)

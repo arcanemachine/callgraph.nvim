@@ -107,7 +107,7 @@ check('both: caller above, root, callee below', rows[A.name] < rows[R.name] and 
 source_mod.make_fetch = function() return fetch end
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(R, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local function root_row_and_child_row()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local r_row, a_row

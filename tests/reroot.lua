@@ -56,11 +56,11 @@ local function word() return vim.fn.expand('<cword>') end
 config.set({ show_call_site = false })
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(place, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 
 -- 1. On the root, `.` does nothing.
 press('.')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('. on the root opens nothing', labels() == '[place' .. arr .. ']', labels())
 
 -- 2. On a callee, `.` opens its graph in a new tab, same direction.
@@ -68,7 +68,7 @@ press('l')
 check('selected total', word() == 'total', word())
 asked = {}
 press('.')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('. opens a new tab on the selection', labels() == 'place' .. arr .. '|[total' .. arr .. ']', labels())
 press('h')
 check('the new graph is rooted on it (nothing left of it)', word() == 'total', word())
@@ -80,24 +80,24 @@ check('its callee is drawn', word() == 'tax', word())
 -- 3. `.` on a function that already has a tab switches to it.
 press('h')
 press('<Tab>')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 press('.')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('. reuses an open tab for the same function', labels() == 'place' .. arr .. '|[total' .. arr .. ']', labels())
 
 -- 4. Closing it returns to the tab it came from, selection kept.
 press('q')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('q returns to the first tab', labels() == '[place' .. arr .. ']', labels())
 check('its selection is kept', word() == 'total', word())
 
 -- 5. A combined (:Callgraph) tab opens a combined tab.
 view.close()
 view.open_with_root(place, 'both', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 press('l')
 press('.')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('combined tab opens a combined tab', labels() == arr .. 'place' .. arr .. '|[' .. arr .. 'total' .. arr .. ']', labels())
 
 print('---')

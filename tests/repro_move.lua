@@ -43,7 +43,7 @@ source_mod.make_fetch = function() return mock_fetch end
 
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 
 local failed = 0
 local function check(name, cond, detail)
@@ -87,19 +87,19 @@ check('initial cursor on main text', cur[1] == expected[1][1] and charcol == exp
 check('initial char is "m"', ch == expected[1][3], 'got ' .. vim.inspect(ch))
 
 view.move('right')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 cur, ch, charcol = cur_char()
 check('move 1 cursor on l1a text', cur[1] == expected[2][1] and charcol == expected[2][2], vim.inspect(cur))
 check('move 1 char is "f"', ch == expected[2][3], 'got ' .. vim.inspect(ch))
 
 view.move('right')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 cur, ch, charcol = cur_char()
 check('move 2 cursor on l2a text', cur[1] == expected[3][1] and charcol == expected[3][2], vim.inspect(cur))
 check('move 2 char is "f"', ch == expected[3][3], 'got ' .. vim.inspect(ch))
 
 view.move('right')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 cur, ch, charcol = cur_char()
 check('move 3 cursor on l2c text', cur[1] == expected[4][1] and charcol == expected[4][2], vim.inspect(cur))
 check('move 3 char is "f"', ch == expected[4][3], 'got ' .. vim.inspect(ch))
@@ -107,7 +107,7 @@ check('move 3 char is "f"', ch == expected[4][3], 'got ' .. vim.inspect(ch))
 -- No more boxes to the right: moving right again must not move.
 local before = vim.api.nvim_win_get_cursor(win)
 view.move('right')
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local after = vim.api.nvim_win_get_cursor(win)
 check('no move past the last box', before[1] == after[1] and before[2] == after[2])
 

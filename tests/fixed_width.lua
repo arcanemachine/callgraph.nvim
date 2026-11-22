@@ -40,7 +40,7 @@ end
 
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 
 local failed = 0
 local function check(name, cond, detail)
@@ -62,12 +62,12 @@ check('initial width is fixed', w0 == 40, 'got ' .. w0)
 
 -- Expand the root (reveals level 2) then collapse; width must not change.
 view.toggle_expand()
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 local w1 = vim.api.nvim_win_get_width(win)
 check('width stable after expand', w1 == 40, 'got ' .. w1)
 
 view.toggle_expand()
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 local w2 = vim.api.nvim_win_get_width(win)
 check('width stable after collapse', w2 == 40, 'got ' .. w2)
 

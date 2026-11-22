@@ -54,7 +54,7 @@ end
 config.set({ show_call_site = false, keymaps = { reroot = 'gr', refresh = '' } })
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local graph_win = vim.api.nvim_get_current_win()
 
 local wb = vim.wo[graph_win].winbar

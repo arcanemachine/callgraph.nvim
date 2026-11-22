@@ -66,7 +66,7 @@ end
 
 vim.cmd('edit ' .. root .. '/tests/test.c')
 view.open_with_root(main, 'callout', 'utf-16', client)
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 
 -- 1. Docs come back: a float shows them; the request asks at the node's name.
 client.answer = { contents = { kind = 'markdown', value = 'Docs for **main**' } }

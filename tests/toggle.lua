@@ -48,7 +48,7 @@ source_mod.resolve_root = function()
   vim.notify('Callgraph: no function under the cursor')
 end
 
-local function settle() vim.wait(200, function() return false end) end
+local function settle() vim.wait(50, function() return false end) end
 local function press(keys)
   vim.api.nvim_feedkeys(vim.keycode(keys), 'x', false)
   settle()
@@ -130,15 +130,26 @@ vim.api.nvim_set_current_win(code)
 -- 8. A slow build: closing before it ends, then reopening, shows the graph
 --    once it is built; reopening while it builds waits for it.
 local slow = true
+local pending = 0
 local real_fetch = source_mod.make_fetch
 source_mod.make_fetch = function()
   local f = real_fetch()
   return function(node, direction)
     if not slow then return f(node, direction) end
     local d = util.Deferred.new()
-    vim.defer_fn(function() f(node, direction):next(function(r) d:resolve(r) end) end, 300)
+    pending = pending + 1
+    vim.defer_fn(function() f(node, direction):next(function(r) pending = pending - 1; d:resolve(r) end) end, 300)
     return d
   end
+end
+-- Wait until the build ends: no fetch in flight, also after a settle.
+local function built()
+  local deadline = vim.uv.now() + 10000
+  repeat
+    vim.wait(3000, function() return pending == 0 end)
+    settle()
+  until pending == 0 or vim.uv.now() > deadline
+  check('the slow build ends', pending == 0, pending .. ' fetches still in flight')
 end
 local errors = {}
 local real_notify = vim.notify
@@ -149,7 +160,7 @@ under_cursor = I.a
 view.open('both')
 vim.wait(50, function() return false end)
 vim.cmd('CallgraphToggle') -- close while building
-vim.wait(3000, function() return false end) -- the build ends meanwhile
+built() -- the build ends meanwhile
 check('a build ending after the view closed raises no error', #errors == 0, errors[1])
 vim.cmd('CallgraphToggle'); settle()
 check('reopened, it shows the finished graph', labels():find('a', 1, true) ~= nil and vim.fn.search('\\<b\\>', 'n') > 0, labels())
@@ -168,7 +179,7 @@ under_cursor = I.a
 view.open('both')
 vim.wait(50, function() return false end)
 press('q') -- the last tab, while it builds
-vim.wait(3000, function() return false end)
+built()
 vim.cmd('CallgraphToggle'); settle()
 check('q while it builds: the toggle brings it back once built', #errors == 0
   and labels():find('a', 1, true) ~= nil and vim.fn.search('\\<b\\>', 'n') > 0, errors[1] or labels())

@@ -90,7 +90,7 @@ source_mod.make_fetch = function() return fetch end
 vim.cmd('edit ' .. root .. '/tests/test.c')
 config.set({ show_call_site = true, window = { style = 'dense', max_name_width = 10, position = 'bottom', fixed_height = 20 } })
 view.open_with_root(R, 'callin', 'utf-16', { name = 'fake' })
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 local function zoom_win()
   for _, w in ipairs(vim.api.nvim_list_wins()) do
     local c = vim.api.nvim_win_get_config(w)

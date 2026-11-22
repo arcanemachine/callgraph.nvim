@@ -99,7 +99,7 @@ end
 for _, style in ipairs({ 'boxed', 'dense' }) do
   config.set({ show_call_site = true, colors = { mode = 'off' }, window = { max_name_width = 6, style = style } })
   view.open_with_root(place, 'callout', 'utf-16', { name = 'fake' })
-  vim.wait(200, function() return false end)
+  vim.wait(50, function() return false end)
   check(style .. ': focus float on the root carries the mark', zoom_root_marks() == 1, zoom_root_marks())
   view.move('right')
   check(style .. ': focus float on another box has no mark', zoom_root_marks() == 0, zoom_root_marks())

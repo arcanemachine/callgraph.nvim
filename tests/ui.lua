@@ -51,7 +51,7 @@ vim.cmd('edit ' .. root .. '/tests/clean.c')
 local orig_win = vim.api.nvim_get_current_win()
 
 view.open_with_root(main, 'callout', 'utf-16', { name = 'fake' })
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 
 local wins = vim.api.nvim_list_wins()
 check('a second window exists (split)', #wins >= 2)
@@ -65,15 +65,15 @@ check('canvas rendered (main + func_l2_a)', text:find('main') ~= nil and text:fi
 
 view.move('right')
 view.toggle_expand()
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 view.change_depth(1)
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 view.set_direction('callin')
-vim.wait(500, function() return false end)
+vim.wait(50, function() return false end)
 check('navigation/expand/depth/direction ran', true)
 
 view.close()
-vim.wait(200, function() return false end)
+vim.wait(50, function() return false end)
 check('view closed, back to one window', #vim.api.nvim_list_wins() == 1)
 check('focus restored to original window', vim.api.nvim_get_current_win() == orig_win)
 

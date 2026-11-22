@@ -62,7 +62,7 @@ local function open(orientation, style)
   config.set({ show_call_site = false, window = { style = style, orientation = orientation } })
   vim.cmd('edit ' .. root .. '/tests/test.c')
   view.open_with_root(L.place, 'both', 'utf-16', { name = 'fake' })
-  vim.wait(200, function() return false end)
+  vim.wait(50, function() return false end)
 end
 
 for _, style in ipairs({ 'dense', 'boxed' }) do
