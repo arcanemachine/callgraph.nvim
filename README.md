@@ -30,7 +30,7 @@ Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs
 - A **winbar tab bar** on the view window: each tab is a function + direction, cycled with `<Tab>` / `<S-Tab>`. Inside the view (`.`, `i` / `o`), opening the same function + direction again jumps to its tab instead of duplicating; opening from the code starts fresh.
 - The selected box's **function name is colored** (default green, `highlights.focus`), the location label `file:line` is **dimmed** (`highlights.loc`); `highlights.focus_bold` optionally bolds the name.
 - The **function the graph was opened on** has its name bold and underlined (`highlights.root`), on top of its color, so it is easy to find again (whenever `highlight` or `colors` is on).
-- `<Enter>` jumps to the definition and **keeps the view open**; `q` closes a tab, and on the last tab drops the graphs; `:q`, the open commands run inside the view and `:CallgraphToggle` close the view and keep the graphs for `:CallgraphToggle` (focus returns to the pane it was opened from).
+- `<Enter>` jumps to the definition and **keeps the view open**; `q` closes a tab; `q` on the last tab, `:q`, the open commands run inside the view and `:CallgraphToggle` close the view and keep the graphs for `:CallgraphToggle` (focus returns to the pane it was opened from).
 
 ### Keymaps
 
@@ -44,7 +44,7 @@ Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs
 | `D` | switch between boxed and dense boxes |
 | `v` | flip between left-to-right and top-to-bottom |
 | `<Tab>` `<S-Tab>` | cycle tabs |
-| `q` | close the current tab (on the last tab, closes the view and drops the graphs) |
+| `q` | close the current tab (on the last tab, closes the view and keeps the graph for `:CallgraphToggle`) |
 | `<Esc>` | close the docs float (`K`) or the focus float, also from inside the docs float; never the view |
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |

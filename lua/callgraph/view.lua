@@ -777,12 +777,12 @@ function M.history_step(delta)
   end
 end
 
---- Close the active tab; when the last tab closes, close the window.
+--- Close the active tab; the last one closes the window and stays, for the
+--- toggle to bring back.
 function M.close_tab()
   if not state then return end
   if #state.tabs <= 1 then
-    M.close()
-    state = nil -- nothing left to bring back
+    M.close() -- the graph stays for the toggle to bring back
     return
   end
   -- Land on the tab visited before this one, as back would.
@@ -1235,7 +1235,7 @@ local function help_rows()
     { { km.refresh }, 'refresh' },
     { { km.win_grow, km.win_shrink }, 'grow / shrink the view' },
     { { km.close_popup }, 'close the docs / focus float' },
-    { { km.close, km.close_alt }, 'close the tab (:q closes the view)' },
+    { { km.close, km.close_alt }, 'close the tab (the last one closes the view)' },
     { { km.help }, 'this help' },
     { { 'click', 'double-click' }, 'select / expand' },
   }

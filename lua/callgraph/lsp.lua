@@ -164,6 +164,7 @@ function M.resolve_root(bufnr)
       selectionRange = node.selectionRange,
     }, encoding, client
   end
+  vim.notify('Callgraph: no function under the cursor', vim.log.levels.WARN)
   return nil, nil, nil
 end
 

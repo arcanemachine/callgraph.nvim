@@ -1,7 +1,7 @@
 -- Opening from the code starts fresh (the graphs so far and their history
 -- go); the open commands run inside the view close it; :CallgraphToggle
--- closes the view or brings it back as it was left, and with no graph yet
--- opens one on the function under the cursor.
+-- closes the view or brings it back as it was left (also after q on the last
+-- tab), and with no graph yet opens one on the function under the cursor.
 -- Run: nvim --headless -u NONE -l tests/toggle.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)
@@ -71,6 +71,12 @@ config.set({ show_call_site = false })
 vim.cmd('edit ' .. root .. '/tests/test.c')
 local code = vim.api.nvim_get_current_win()
 
+-- 0. With no graph yet and no function under the cursor, nothing opens.
+under_cursor = nil
+vim.cmd('CallgraphToggle'); settle()
+check('no graph, no function: nothing opens', view_win() == nil)
+under_cursor = I.a
+
 -- 1. Opening from the code; `.` adds a tab.
 view.open('both'); settle()
 press('l'); press('.')
@@ -110,21 +116,16 @@ check('toggle after :q brings both tabs back', select(2, labels():gsub('|', ''))
 press('[')
 check('and their history', labels():match('%[') ~= nil and labels():sub(1, 1) == '[', labels())
 
--- 6. Closing the last tab leaves nothing: the toggle opens a new graph on
---    the function under the cursor.
+-- 6. Closing the last tab closes the view and keeps that graph: the toggle
+--    brings it back, wherever the cursor is.
 press('q'); press('q')
 check('q on the last tab closes the view', view_win() == nil)
 under_cursor = I.x
 vim.cmd('CallgraphToggle'); settle()
-check('with no graph, toggle opens one on the function under the cursor', labels():find('x', 1, true) ~= nil, labels())
-
--- 7. With no graph and no function under the cursor, nothing opens.
-vim.cmd('CallgraphToggle'); settle() -- close, x kept
-vim.cmd('CallgraphToggle'); settle() -- back, focus in the view
-press('q') -- the last tab: nothing left
-under_cursor = nil
-vim.cmd('CallgraphToggle'); settle()
-check('no graph, no function: nothing opens', view_win() == nil)
+check('the toggle brings back the last graph', view_win() ~= nil and labels() ~= ''
+  and not labels():find('x', 1, true), labels())
+vim.cmd('CallgraphToggle'); settle() -- close
+vim.api.nvim_set_current_win(code)
 
 -- 8. A slow build: closing before it ends, then reopening, shows the graph
 --    once it is built; reopening while it builds waits for it.
@@ -161,6 +162,16 @@ vim.cmd('CallgraphToggle') -- reopen while it still builds
 vim.wait(3000, function() return labels() ~= '' end)
 check('reopening while it builds raises no error and shows it once built', #errors == 0
   and labels():find('x', 1, true) ~= nil, errors[1] or labels())
+vim.cmd('CallgraphToggle'); settle() -- close x
+vim.api.nvim_set_current_win(code)
+under_cursor = I.a
+view.open('both')
+vim.wait(50, function() return false end)
+press('q') -- the last tab, while it builds
+vim.wait(3000, function() return false end)
+vim.cmd('CallgraphToggle'); settle()
+check('q while it builds: the toggle brings it back once built', #errors == 0
+  and labels():find('a', 1, true) ~= nil and vim.fn.search('\\<b\\>', 'n') > 0, errors[1] or labels())
 vim.notify = real_notify
 slow = false
 
