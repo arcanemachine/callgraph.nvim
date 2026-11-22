@@ -838,70 +838,68 @@ function M.in_view()
   return cur == state.win or cur == state.help_win or cur == docs
 end
 
-function M.jump_to_def()
+--- Open the selected function's code in the code pane, the view staying on
+--- screen. With keep_focus, focus stays in the view.
+function M.jump_to_def(keep_focus)
   local tab = active_tab()
   if not tab or not tab.graph then return end
   local node = tab.graph.nodes[tab.selected_id]
   if not node or not node.uri then return end
-  -- Keep the view open: jump in the pane it was opened from, and leave the
-  -- view on screen.
-  local orig = M.code_window()
-  vim.api.nvim_set_current_win(orig)
+  local encoding = state.encoding
+  -- Jumps can come after a lookup or a pick, the view maybe closed by then.
+  local function land(uri, range)
+    if not (state and state.win and vim.api.nvim_win_is_valid(state.win)) then return end
+    local win = M.code_window()
+    if keep_focus then
+      vim.api.nvim_win_call(win, function() lsp_mod.jump_to_location(uri, range, encoding) end)
+    else
+      vim.api.nvim_set_current_win(win)
+      lsp_mod.jump_to_location(uri, range, encoding)
+    end
+  end
   -- cscope nodes carry the *call-site* location in uri/range (cscope -L output
   -- is call sites, not definitions). Jump to the real definition via `cscope -1`
   -- — preferring the definition the user already chose when expanding; with
   -- several definitions, ask which one to jump to.
   if is_call_site_node(node) then
-    local function jump_to_def(def)
-      lsp_mod.jump_to_location(def.uri,
-        { start = { line = def.line, character = 0 }, ['end'] = { line = def.line, character = 0 } },
-        state.encoding)
+    local function land_def(def)
+      land(def.uri, { start = { line = def.line, character = 0 }, ['end'] = { line = def.line, character = 0 } })
     end
     if not config.get().multi_def then
       -- Default: jump to the first definition — no multi-definition handling.
       source_mod.provider('cscope').find_definition(node.name):next(function(def)
         if def then
-          jump_to_def(def)
+          land_def(def)
         elseif node.range then
-          lsp_mod.jump_to_location(node.uri, node.range, state.encoding)
+          land(node.uri, node.range)
         end
       end)
       return
     end
     if node.chosen_def then
-      jump_to_def(node.chosen_def)
+      land_def(node.chosen_def)
       return
     end
     query_definitions(node):next(function(defs)
       if defs and #defs > 1 then
-        -- Open the picker from the graph window so cancelling returns there
-        -- (jump_to_def already moved focus to the main window).
-        if state.win and vim.api.nvim_win_is_valid(state.win) then
-          vim.api.nvim_set_current_win(state.win)
-        end
         picker.pick(defs, function(def)
           if def then
             node.chosen_def = def
-            -- picker.close restored focus to the graph window; the jump itself
-            -- must land in the main (code) window.
-            if orig and vim.api.nvim_win_is_valid(orig) then
-              vim.api.nvim_set_current_win(orig)
-            end
-            jump_to_def(def)
+            land_def(def)
           end
         end)
       elseif defs and #defs == 1 then
         node.chosen_def = defs[1]
-        jump_to_def(defs[1])
+        land_def(defs[1])
       elseif node.range then
         -- Fallback: jump to the call site if definition lookup fails.
-        lsp_mod.jump_to_location(node.uri, node.range, state.encoding)
+        land(node.uri, node.range)
       end
     end)
     return
   end
   if node.range then
-    lsp_mod.jump_to_location(node.uri, node.range, state.encoding)
+    land(node.uri, node.range)
   end
 end
 
@@ -1221,7 +1219,8 @@ local function help_rows()
     { { km.move_left, km.move_down, km.move_up, km.move_right }, 'move the selection' },
     { { km.move_left_alt, km.move_down_alt, km.move_up_alt, km.move_right_alt }, 'move the selection' },
     { { km.toggle_expand }, 'expand / collapse' },
-    { { km.jump_to_def, km.jump_to_def_alt }, 'jump to the definition (the view stays)' },
+    { { km.jump_to_def, km.jump_to_def_alt }, 'jump to the definition (focus moves to the code)' },
+    { { km.preview }, 'show the code (focus stays here)' },
     { { km.hover }, 'docs for the function (LSP hover)' },
     { { km.reroot }, 'new graph on the selected function' },
     { { km.back, km.back_alt }, 'back to the graph seen before' },
@@ -1342,6 +1341,7 @@ function M.setup_keymaps()
   set(km.win_shrink, function() M.resize_window_size(-1) end)
   set(km.jump_to_def, function() M.jump_to_def() end)
   set(km.jump_to_def_alt, function() M.jump_to_def() end)
+  set(km.preview, function() M.jump_to_def(true) end)
   set(km.reselect_def, function() M.reselect_def() end)
   set(km.hover, function() M.hover_docs() end)
   set(km.toggle_style, function() M.toggle_style() end)

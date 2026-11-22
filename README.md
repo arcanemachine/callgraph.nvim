@@ -39,6 +39,7 @@ Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs
 | `h` `j` `k` `l` / arrows | move the selection: across columns (rows when top-to-bottom) to the nearest one, preferring the function's caller or callee, then the box level with it; within a column (row when top-to-bottom) it stops at the end. Back the way it came returns to where it came from, along a call edge or to undo the last move |
 | `e` | expand / collapse the focused box (not `<Space>`: a common leader key, which the view's keys would take over) |
 | `<Enter>` / `d` | jump to the function definition (view stays open) |
+| `p` | show the function definition in the code pane; focus stays in the view |
 | `R` | re-pick the definition of a multi-definition node (multi_def only) |
 | `K` | docs for the selected function (LSP hover) |
 | `D` | switch between boxed and dense boxes |
@@ -204,7 +205,7 @@ require('callgraph').setup({
     depth_up = '+', depth_up_alt = '=', -- `=` equals `+` (no shift needed)
     depth_down = '-',
     win_grow = '<', win_shrink = '>', -- '<' grow / '>' shrink the view window
-    jump_to_def = '<CR>', jump_to_def_alt = 'd',
+    jump_to_def = '<CR>', jump_to_def_alt = 'd', preview = 'p',
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
     hover = 'K',        -- docs for the selected function (LSP hover)
     toggle_style = 'D', -- boxed / dense boxes

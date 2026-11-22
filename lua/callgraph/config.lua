@@ -134,6 +134,7 @@ M.defaults = {
     win_shrink = '>', -- shrink it
     jump_to_def = '<CR>', -- jump to the definition in the main window
     jump_to_def_alt = 'd',
+    preview = 'p', -- show the definition in the main window, focus stays in the view
     reselect_def = 'R', -- re-pick the definition of a multi-definition node
     hover = 'K', -- docs for the selected function (LSP hover)
     toggle_style = 'D', -- switch between boxed and dense boxes
