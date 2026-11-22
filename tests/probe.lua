@@ -5,6 +5,10 @@
 
 local here = debug.getinfo(1, 'S').source:sub(2)
 local root = vim.fn.fnamemodify(here, ':h:h')
+if vim.fn.executable('clangd') == 0 then
+  print('SKIP: clangd not found (install clangd for this test)')
+  os.exit(0)
+end
 
 vim.cmd('edit ' .. root .. '/tests/clean.c')
 vim.lsp.start({

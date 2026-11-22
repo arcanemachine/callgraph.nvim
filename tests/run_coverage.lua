@@ -54,7 +54,7 @@ table.sort(tests)
 -- 2. Fresh stats, then run each test in its own nvim process (luacov aggregates
 --    hit counts across processes by appending to luacov.stats.out).
 -- ---------------------------------------------------------------------------
-local run_failures = 0
+local run_failures, skips = 0, 0
 if not no_run then
   os.remove(root .. '/luacov.stats.out')
   for _, t in ipairs(tests) do
@@ -67,12 +67,15 @@ if not no_run then
       for line in (out):gmatch('[^\r\n]+') do
         if line:find('FAIL') or line:find('Error') or line:find('ERR') then print('   ' .. line) end
       end
+    elseif ('\n' .. (res.stdout or '') .. (res.stderr or '')):find('\nSKIP') then
+      skips = skips + 1
+      print('SKIP test ' .. vim.fn.fnamemodify(t, ':t'))
     else
       print('PASS test ' .. vim.fn.fnamemodify(t, ':t'))
     end
   end
   print('---')
-  print(('tests: %d passed, %d failed'):format(#tests - run_failures, run_failures))
+  print(('tests: %d passed, %d skipped, %d failed'):format(#tests - run_failures - skips, skips, run_failures))
 
   -- -----------------------------------------------------------------------
   -- 3. Generate the report from the merged stats.
