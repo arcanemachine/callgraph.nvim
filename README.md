@@ -50,7 +50,7 @@ Run from the code, `:Callout` / `:Callin` / `:Callgraph` start fresh: the graphs
 | `r` | refresh |
 | `i` / `o` | toggle callin / callout in place |
 | `.` | open a graph rooted on the selected function, in a new tab (same direction) |
-| `[` or `<C-o>` / `]` | back / forward through the tabs in the order visited, like a browser; closing a tab lands where back would |
+| `[` or `<C-o>` / `]` | back / forward through the tabs in the order visited, like a browser; closing a tab lands where back would; a run of `<Tab>` / `<S-Tab>` counts only the tab it stops on (and any tab used on the way) |
 | `+` / `=` / `-` | depth +1 / -1 |
 | `<` / `>` | grow / shrink the view window (width for `right`, height for `bottom`) |
 | `?` | key help (a float; `?`, `q` or `<Esc>` closes it) — also the `? keys` button at the right of the tab bar |

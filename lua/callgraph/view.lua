@@ -73,6 +73,7 @@ end
 -- History of the tabs visited, like a browser's: back and forward walk it,
 -- any other switch adds to it and drops what lay ahead.
 local function visit(tab)
+  state.cycle = nil
   local h = state.history
   -- Already there (closing a tab, reopening the current one): keep what lies ahead.
   if h[state.hist_pos] == tab then return end
@@ -770,6 +771,7 @@ function M.history_step(delta)
     if t == tab then
       state.hist_pos = state.hist_pos + delta
       state.active = i
+      state.cycle = nil
       M.render_view()
       M.focus_selected()
       return
@@ -1376,22 +1378,34 @@ function M.setup_keymaps()
   })
 end
 
+-- Switch tab with <Tab> / <S-Tab>. A run of them leaves one history step, the
+-- tab it stops on: a tab passed over unused (its selection not moved) is
+-- dropped.
+local function cycle_to(i)
+  local h, c = state.history, state.cycle
+  if c and c.added and state.hist_pos == #h and h[#h] == c.tab and c.tab.selected_id == c.selected then
+    h[#h] = nil
+    state.hist_pos = #h
+  end
+  local n = #h
+  set_active(i)
+  local tab = state.tabs[i]
+  -- Back on the tab the run started from, no step was added: none to drop.
+  state.cycle = { tab = tab, selected = tab.selected_id, added = #state.history > n }
+  M.render_view()
+  M.focus_selected()
+end
+
 --- Cycle to the next tab (wraps around).
 function M.tab_next()
   if not state or #state.tabs <= 1 then return end
-  local n = #state.tabs
-  set_active(state.active % n + 1)
-  M.render_view()
-  M.focus_selected()
+  cycle_to(state.active % #state.tabs + 1)
 end
 
 --- Cycle to the previous tab (wraps around).
 function M.tab_prev()
   if not state or #state.tabs <= 1 then return end
-  local n = #state.tabs
-  set_active((state.active - 2) % n + 1)
-  M.render_view()
-  M.focus_selected()
+  cycle_to((state.active - 2) % #state.tabs + 1)
 end
 
 return M

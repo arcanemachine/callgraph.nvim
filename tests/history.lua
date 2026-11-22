@@ -1,6 +1,7 @@
 -- Tab history, like a browser's: [ and <C-o> go back to the tab seen before,
 -- ] forward again; any other switch adds to it and drops what lay ahead;
--- closing a tab lands where back would. <C-o> never leaves the view.
+-- closing a tab lands where back would; a run of <Tab> presses counts only
+-- the tab it stops on. <C-o> never leaves the view.
 -- Run: nvim --headless -u NONE -l tests/history.lua
 
 local here = debug.getinfo(1, 'S').source:sub(2)
@@ -115,6 +116,29 @@ view.open_with_root(I.a, 'callout', 'utf-16', { name = 'fake' })
 vim.wait(200, function() return false end)
 press(']')
 check('forward still works after reopening the current tab', active() == 'c', active())
+
+-- A run of <Tab> presses leaves one step: the tab it stops on.
+press('l'); press('.') -- d: tabs a, c, d
+check('three tabs, on d', count() == 3 and active() == 'd', active())
+press('<Tab>'); press('<Tab>') -- past a, stop on c
+press('[')
+check('back from a <Tab> run skips the tabs passed over', active() == 'd', active())
+
+-- A tab used during the run (its selection moved) stays a step.
+press('<Tab>') -- a
+press('l') -- select b
+press('<Tab>') -- c
+press('[')
+check('a tab used during the run stays a step', active() == 'a', active())
+press('[')
+check('and the run started from d', active() == 'd', active())
+
+-- A run that wraps back to where it started keeps that tab's step.
+press('<Tab>'); press('['); press(']') -- end the run: the history ends on this tab
+local start = active()
+for _ = 1, count() + 1 do press('<Tab>') end -- all the way round, and one more
+press('[')
+check('a run wrapping past its start keeps that step', active() == start, active() .. ' vs ' .. start)
 
 print('---')
 if failed == 0 then print('HISTORY OK') else print('HISTORY FAILED: ' .. failed) end

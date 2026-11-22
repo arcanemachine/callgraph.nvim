@@ -119,17 +119,18 @@ check('tab_next switches tab', labels_str() == 'main' .. arr .. '|' .. 'func_l1_
 
 view.close_tab()
 vim.wait(200, function() return false end)
--- The previous active tab was func_l1_a, so closing callin-main returns there.
-check('close active tab (callin main)', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']', labels_str())
+-- func_l1_a was only passed over by <S-Tab> / <Tab>, so it isn't in the
+-- history: closing callin-main lands on main, seen before.
+check('close active tab (callin main)', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr, labels_str())
 
--- <Tab> wraps from tab 2 back to tab 1.
+-- <S-Tab> wraps from tab 1 to tab 2, <Tab> from tab 2 back to tab 1.
+view.tab_prev()
+vim.wait(200, function() return false end)
+check('tab_prev wraps to tab2', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']', labels_str())
+
 view.tab_next()
 vim.wait(200, function() return false end)
 check('tab_next wraps to tab1', labels_str() == '[' .. 'main' .. arr .. ']|' .. 'func_l1_a' .. arr, labels_str())
-
-view.tab_prev()
-vim.wait(200, function() return false end)
-check('tab_prev back to func_l1_a', labels_str() == 'main' .. arr .. '|[' .. 'func_l1_a' .. arr .. ']', labels_str())
 
 view.close_tab()
 vim.wait(200, function() return false end)
